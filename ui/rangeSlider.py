@@ -1,0 +1,316 @@
+# -*- coding: utf-8 -*-
+
+"""
+/***************************************************************************
+Name			 	 : RangeSlider
+Description          : A slider for ranges
+Date                 : Jun 20, 2012 
+copyright            : (C) 2012 by Giuseppe Sucameli
+email                : brush.tyler@gmail.com
+
+the code is based on RangeSlider by phil (see https://svn.enthought.com/enthought/browser/TraitsBackendQt/trunk/enthought/traits/ui/qt4/extra/range_slider.py) licensed under GPLv2
+ ***************************************************************************/
+
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+"""
+
+from PyQt4 import QtGui, QtCore
+
+class RangeSlider(QtGui.QSlider):
+    """ A slider for ranges.
+    
+        This class provides a dual-slider for ranges, where there is a defined
+        maximum and minimum, as is a normal slider, but instead of having a
+        single slider value, there are 2 slider values.
+        
+        This class emits the same signals as the QSlider base class, with the 
+        exception of valueChanged. 
+
+        In addition, two new signals are emitted to catch the movement of 
+        each handle, lowValueChanged(int) and highValueChanged(int).
+    """
+    def __init__(self, *args):
+        super(RangeSlider, self).__init__(*args)
+
+        self._low = self.minimum()
+        self._high = self.maximum()
+        
+        self.pressed_control = QtGui.QStyle.SC_None
+        self.hover_control = QtGui.QStyle.SC_None
+        self.click_offset = 0
+        
+        # -1 for the low, 1 for the high, 0 for both
+        self.active_slider = -1
+
+    def lowValue(self):
+        return self._low
+
+    def setLowValue(self, low):
+        if low == self._low:
+            return
+
+        self._low = low
+        self.update()
+
+        if self.hasTracking():
+            self.emit(QtCore.SIGNAL('lowValueChanged'), self._low)
+
+    def highValue(self):
+        return self._high
+
+    def setHighValue(self, high):
+        if high == self._high:
+            return
+
+        self._high = high
+        self.update()
+
+        if self.hasTracking():
+            self.emit(QtCore.SIGNAL('highValueChanged'), self._high)
+        
+        
+    def paintEvent(self, event):
+        # based on http://qt.gitorious.org/qt/qt/blobs/master/src/gui/widgets/qslider.cpp
+
+        painter = QtGui.QPainter(self)
+        style = QtGui.QApplication.style() 
+
+        for i, value in enumerate([self._low, self._high]):
+            opt = QtGui.QStyleOptionSlider()
+            self.initStyleOption(opt)
+
+            gr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderGroove, self)
+            sr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderHandle, self)
+
+            if self.orientation() == QtCore.Qt.Horizontal:
+                handle_length = sr.width()
+                slider_length = gr.width()
+                slider_min = gr.x()
+                slider_max = gr.right() - handle_length + 1
+                opt_rect_setMinPos = opt.rect.setX
+                opt_rect_setLength = opt.rect.setWidth
+            else:
+                handle_length = sr.height()
+                slider_length = gr.height()
+                slider_min = gr.y()
+                slider_max = gr.bottom() - handle_length + 1
+                opt_rect_setMinPos = opt.rect.setY
+                opt_rect_setLength = opt.rect.setHeight
+
+            inverted_value = self.maximum() - value
+
+            opt.subControls = QtGui.QStyle.SC_SliderGroove | QtGui.QStyle.SC_SliderHandle
+
+            # draw the first slider with inverted appearance, then the second 
+            # slider drawn on top of the existing ones
+            if i == 0:
+                if self.orientation() == QtCore.Qt.Horizontal:
+                    opt.upsideDown = not self.invertedAppearance()
+                else:
+                    opt.upsideDown = self.invertedAppearance()
+
+                pos = style.sliderPositionFromValue(self.minimum(), self.maximum(),
+                                             inverted_value, slider_max - slider_min,
+                                             opt.upsideDown)
+
+
+                new_val = style.sliderValueFromPosition(self.minimum(), self.maximum(),
+                                             pos, slider_max - slider_min - 2,
+                                             opt.upsideDown)
+
+                opt.sliderValue = opt.sliderPosition = new_val
+
+                if self.orientation() == QtCore.Qt.Horizontal:
+                    opt_rect_setMinPos(slider_min)
+                    opt_rect_setLength(slider_length)
+                else:
+                    opt_rect_setMinPos(slider_min + 2)
+                    opt_rect_setLength(slider_length - 2)
+
+            else:
+                opt.sliderValue = opt.sliderPosition = 0
+
+                # do not highlight the second part when has focus to avoid 
+                # drawing of partially overlapped semi-transparent backgrounds
+                opt.state &= ~QtGui.QStyle.State_HasFocus
+
+                if self.orientation() == QtCore.Qt.Horizontal:
+                    opt.upsideDown = self.invertedAppearance()
+
+                    pos = style.sliderPositionFromValue(self.minimum(), self.maximum(),
+                                             inverted_value, slider_max - slider_min - 4,
+                                             opt.upsideDown)
+
+                    #print "const", self.minimum(), self.maximum(), handle_length
+                    #print "vars", inverted_value, pos, slider_max, slider_min
+                    #print "old", opt.rect.x(), opt.rect.width()
+                    opt_rect_setMinPos(slider_max - pos - 1)
+                    opt_rect_setLength(pos + handle_length + 3)
+                    #print "new", opt.rect.x(), opt.rect.width()
+                else:
+                    opt.upsideDown = not self.invertedAppearance()
+
+                    pos = style.sliderPositionFromValue(self.minimum(), self.maximum(),
+                                             inverted_value, slider_min + slider_length - handle_length - 8,
+                                             opt.upsideDown)
+
+                    #print "vars", inverted_value, pos, slider_max, slider_min, handle_length
+                    #print "old", opt.rect.y(), opt.rect.height()
+                    opt_rect_setMinPos(slider_min)
+                    opt_rect_setLength(slider_min + slider_length - pos - 4)
+                    #print "new", opt.rect.y(), opt.rect.height()
+
+            if self.tickPosition() != self.NoTicks:
+                opt.subControls |= QtGui.QStyle.SC_SliderTickmarks
+
+            if self.pressed_control:
+                opt.activeSubControls = self.pressed_control
+                opt.state |= QtGui.QStyle.State_Sunken
+            else:
+                opt.activeSubControls = self.hover_control
+
+            style.drawComplexControl(QtGui.QStyle.CC_Slider, opt, painter, self)
+            
+        
+    def mousePressEvent(self, event):
+        event.accept()
+        
+        style = QtGui.QApplication.style()
+        button = event.button()
+        
+        # In a normal slider control, when the user clicks on a point in the 
+        # slider's total range, but not on the slider part of the control the
+        # control would jump the slider value to where the user clicked.
+        # For this control, clicks which are not direct hits will slide both
+        # slider parts
+                
+        if button:
+            opt = QtGui.QStyleOptionSlider()
+            self.initStyleOption(opt)
+
+            self.active_slider = 0
+            mid = (self.maximum() - self.minimum()) / 2.0
+            
+            for i, value in enumerate([self._low, self._high]):
+                opt.sliderPosition = value
+                hit = style.hitTestComplexControl(style.CC_Slider, opt, event.pos(), self)
+
+                if hit == style.SC_SliderHandle:
+                    self.pressed_control = hit
+
+                    # if both handles are close together, avoid locks 
+                    # choosing the one with more empty space near it
+                    if self._low + 2 >= self._high:
+                        self.active_slider = 1 if self._high < mid else -1
+                    else:
+                        self.active_slider = -1 if i == 0 else 1
+                    self.triggerAction(self.SliderMove)
+                    self.setRepeatAction(self.SliderNoAction)
+                    self.setSliderDown(True)
+                    break
+
+            if self.active_slider == 0:
+                self.pressed_control = QtGui.QStyle.SC_SliderHandle
+                self.click_offset = self.__pixelPosToRangeValue(self.__pick(event.pos()))
+                self.triggerAction(self.SliderMove)
+                self.setRepeatAction(self.SliderNoAction)
+        else:
+            event.ignore()
+                                
+    def mouseMoveEvent(self, event):
+        if self.pressed_control != QtGui.QStyle.SC_SliderHandle:
+            event.ignore()
+            return
+        
+        event.accept()
+        new_pos = self.__pixelPosToRangeValue(self.__pick(event.pos()))
+        opt = QtGui.QStyleOptionSlider()
+        self.initStyleOption(opt)
+
+        old_click_offset = self.click_offset
+        self.click_offset = new_pos
+        
+        if self.active_slider == 0:
+            offset = new_pos - old_click_offset
+            new_low = self._low + offset
+            new_high = self._high + offset
+
+            if new_low < self.minimum():
+                diff = self.minimum() - new_low
+                new_low += diff
+                new_high += diff
+            if new_high > self.maximum():
+                diff = self.maximum() - new_high
+                new_low += diff
+                new_high += diff
+
+            self.setLowValue( new_low )
+            self.setHighValue( new_high )
+
+        elif self.active_slider < 0:
+            if new_pos >= self._high:
+                new_pos = self._high
+            self.setLowValue( new_pos )
+
+        else:
+            if new_pos <= self._low:
+                new_pos = self._low
+            self.setHighValue( new_pos )
+
+        if self.hasTracking():
+            self.emit(QtCore.SIGNAL('sliderMoved(int)'), new_pos)
+
+            
+    def __pick(self, pt):
+        if self.orientation() == QtCore.Qt.Horizontal:
+            return pt.x()
+        else:
+            return pt.y()
+           
+           
+    def __pixelPosToRangeValue(self, pos):
+        opt = QtGui.QStyleOptionSlider()
+        self.initStyleOption(opt)
+        style = QtGui.QApplication.style()
+        
+        gr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderGroove, self)
+        sr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderHandle, self)
+        
+        if self.orientation() == QtCore.Qt.Horizontal:
+            handle_length = sr.width()
+            slider_min = gr.x() + handle_length/2
+            slider_max = gr.right() - handle_length/2 + 1
+        else:
+            handle_length = sr.height()
+            slider_min = gr.y() + handle_length/2
+            slider_max = gr.bottom() - handle_length/2 + 1
+            
+        return style.sliderValueFromPosition(self.minimum(), self.maximum(),
+                                             pos-slider_min, slider_max - slider_min,
+                                             opt.upsideDown)
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtGui.QApplication(sys.argv)
+
+    slider = RangeSlider()#QtGui.QSlider()
+    slider.setMinimum(0)
+    slider.setMaximum(10000)
+    slider.setLowValue(0)
+    slider.setHighValue(10000)
+    #slider.setOrientation( QtCore.Qt.Horizontal )
+
+    def echo(value):
+        print value
+    QtCore.QObject.connect(slider, QtCore.SIGNAL('sliderMoved(int)'), echo)
+
+    slider.show()
+    sys.exit(app.exec_())
