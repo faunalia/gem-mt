@@ -1,0 +1,28 @@
+; the next section is mandatory
+[general]
+name=GEM Modellers Toolkit plugin (GEM-MT)
+description=Analysing and Processing Earthquake Catalogue Data
+version=0.0.1
+qgisMinimumVersion=1.5
+
+category=Plugin
+
+; end of mandatory metadata
+
+; start of optional metadata
+author=Giuseppe Sucameli (Faunalia)
+
+changelog=first pre-alpha version
+
+; tags are in comma separated value format, spaces are allowed
+tags=earthquakes
+
+homepage=http://www.faunalia.com/
+tracker=http://hub.qgis.org/projects/gem-mt
+repository=http://hub.qgis.org/projects/gem-mt/repository
+
+; path to a icon within the plugin folder
+icon=icons/logo.png
+
+experimental=True
+deprecated=False
