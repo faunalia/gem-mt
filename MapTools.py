@@ -140,7 +140,7 @@ class Drawer(qgis.gui.QgsMapToolEmitPoint):
 		geom = self.rubberBand.asGeometry()
 		if geom == None:
 			return
-		return QgsGeometry( geom )	# return a new geometry
+		return geom
 
 	def onEnd(self, geometry):
 		self.stopCapture()
