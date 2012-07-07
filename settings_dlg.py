@@ -51,6 +51,42 @@ class Settings:
 	def dateField():
 		return QSettings("/GEM-MT_plugin").value("date_field", "Date").toString()
 
+	
+	@staticmethod
+	def key2indexFieldMap( fields ):
+		key2index = {}
+
+		for index, fld in fields.iteritems():
+			key = Settings.fieldName2key( fld.name() )
+			if key:
+				key2index[ key ] = index
+
+		return key2index
+
+	@staticmethod
+	def index2keyFieldMap( fields ):
+		index2key = {}
+
+		for index, fld in fields.iteritems():
+			key = Settings.fieldName2key( fld.name() )
+			if key:
+				index2key[ index ] = key
+
+		return index2key
+
+	@staticmethod
+	def fieldName2key( fieldName ):
+		if fieldName.startsWith( Settings.longitudeField(), Qt.CaseInsensitive ):
+			return 'longitude'
+		elif fieldName.startsWith( Settings.latitudeField(), Qt.CaseInsensitive ):
+			return 'latitude'
+		elif fieldName.startsWith( Settings.magnitudeField(), Qt.CaseInsensitive ):
+			return 'magnitude'
+		elif fieldName.startsWith( Settings.depthField(), Qt.CaseInsensitive ):
+			return 'depth'
+		elif fieldName.startsWith( Settings.dateField(), Qt.CaseInsensitive ):
+			return 'date'
+
 
 from ui.settingsDlg_ui import Ui_Dialog
 class SettingsDlg(QDialog, Ui_Dialog):
