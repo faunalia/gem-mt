@@ -21,4 +21,4 @@ clean:
 	rm -f $(GEN_FILES) *.pyc
 
 package:
-	make all && cd .. && rm -f GEM_MT.zip && zip -r GEM_MT.zip gem_mt -x \*.svn* -x \*.pyc -x \*~ -x \*entries\* -x \*.git\*
+	make all && cd .. && rm -f gem_mt.zip && zip -r gem_mt.zip gem_mt -x \*.svn* -x \*.pyc -x \*~ -x \*entries\* -x \*.git\*
