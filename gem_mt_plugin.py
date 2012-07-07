@@ -142,6 +142,7 @@ class GEM_MT_Plugin:
 
 			if vl.geometryType() != QGis.Point:
 				QMessageBox.warning( self.iface.mainWindow(), "Invalid CSV data", u"Unable to get data from the selected file. Setup Lat/Long field names and delimiter from the Settings dialog and then try again." )
+				self.settings()
 				return
 
 			# set the layer style
@@ -162,6 +163,8 @@ class GEM_MT_Plugin:
 			else:
 				QgsMapLayerRegistry.instance().addMapLayer( vl )
 			self.vl = vl
+
+			self.plotStatsAction.setChecked(True)
 
 		finally:
 			# restore the render flag state
