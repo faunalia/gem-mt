@@ -34,8 +34,6 @@ class FilterDock(QDockWidget):
 		self.setupUi()
 
 	def closeEvent(self, event):
-		self.mainWidget.clear()
-
 		self.emit( SIGNAL( "closed" ), self )
 		return QDockWidget.closeEvent(self, event)
 
@@ -82,9 +80,12 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.dateRangeFilter.setOrientation( Qt.Horizontal )
 
 		# take min/max values index from the data provider
-		fields = self.vl.dataProvider().fields()
-		for index, field in fields.iteritems():
-			filterWdg = self.filterForField( field.name() )
+		pr = self.vl.dataProvider()
+
+		from settings_dlg import Settings
+		key2indexFieldMap = Settings.key2indexFieldMap( pr.fields() )
+		for key, index in key2indexFieldMap.iteritems():
+			filterWdg = self._filterForKey( key )
 			if not filterWdg:
 				continue
 
@@ -130,15 +131,22 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.updateAxesCombos()
 
 		# populate both axis combos with field names
-		for index, field in self.vl.dataProvider().fields().iteritems():
-			self.xAxisCombo.addItem( field.name(), QVariant(index) )
-			self.yAxisCombo.addItem( field.name(), QVariant(index) )
+		for index, fld in pr.fields().iteritems():
+			self.xAxisCombo.addItem( fld.name(), QVariant(index) )
+			self.yAxisCombo.addItem( fld.name(), QVariant(index) )
 
 		# connect actions to the widgets
 		self.connect(self.drawPolygonBtn, SIGNAL("clicked()"), self.drawPolygon)
 		self.connect(self.clearPolygonBtn, SIGNAL("clicked()"), self.clearPolygon)
-		self.connect(self.plotBtn, SIGNAL("clicked()"), self.plot)
+		self.connect(self.plotBtn, SIGNAL("clicked()"), self.createPlot)
 		self.connect(self.plotTypeCombo, SIGNAL("currentIndexChanged(int)"), self.updateAxesCombos)
+
+
+	def _filterForKey(self, key):
+		if key == 'magnitude': return self.magnitudeRangeFilter
+		if key == 'depth': return self.depthRangeFilter
+		if key == 'date': return self.dateRangeFilter
+		return None
 
 
 	def storePrevMapTool(self):
@@ -147,6 +155,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 			self._prevMapTool = prevMapTool
 
 	def restorePrevMapTool(self):
+		self.polygonDrawer.stopCapture()
 		if self._prevMapTool: 
 			self.canvas.setMapTool(self._prevMapTool)
 
@@ -161,20 +170,34 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.yAxisCombo.setEnabled( self._hasPlotYField( self._getPlotType() ) )
 
 
-	def clear(self):
-		self.clearPolygon()
+	def showEvent(self, event):
+		self.showRubberBands(True)
+		QWidget.showEvent(self, event)
+
+	def hideEvent(self, event):
+		self.showRubberBands(False)
+		self.restorePrevMapTool()
+		QWidget.hideEvent(self, event)
 
 	def deleteLater(self):
+		self.clearPolygon()
+
 		# restore the previous maptool
-		self.polygonDrawer.stopCapture()
 		self.restorePrevMapTool()
 
 		# delete the polygon drawer maptool
-		self.polygonDrawer.reset()
 		self.polygonDrawer.deleteLater()
 		self.polygonDrawer = None
 
 		return QWidget.deleteLater(self)
+
+
+	def showRubberBands(self, show=True):
+		""" show/hide all the rubberbands """
+		if self.polygonDrawer.isEmittingPoints:
+			self.polygonDrawer.reset()
+		else:
+			self.polygonDrawer.rubberBand.show() if show else self.polygonDrawer.rubberBand.hide()
 
 
 	def drawPolygon(self):
@@ -193,17 +216,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.polygonDrawer.stopCapture()
 		self.restorePrevMapTool()
 
-	def filterForField(self, fieldName):
-		from settingsDlg import Settings
-		if fieldName.startsWith( Settings.magnitudeField(), Qt.CaseInsensitive ):
-			return self.magnitudeRangeFilter
-		if fieldName.startsWith( Settings.depthField(), Qt.CaseInsensitive ):
-			return self.depthRangeFilter
-		if fieldName.startsWith( Settings.dateField(), Qt.CaseInsensitive ):
-			return self.dateRangeFilter
-		return None
-
-	def plot(self):
+	def createPlot(self):
 		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
 		try:
 			self._createPlot()
@@ -212,29 +225,26 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 
 	def _createPlot(self):
-		# the following lists will contain x and y values
-		x = []
-		y = []
-
 		plotType = self._getPlotType()
 		hasYField = self._hasPlotYField( plotType )
 
 		# spatial filter
-		geom = self.polygonDrawer.geometry()
-		if not geom:
+		spatialFilter = self.polygonDrawer.geometry()
+		if not spatialFilter:
 			extent = QgsRectangle()
 		else:
-			extent = geom.boundingBox()
+			extent = spatialFilter.boundingBox()
 
 		# get the indexes of fields selected in the combos
 		xIndex = self.xAxisCombo.itemData( self.xAxisCombo.currentIndex() ).toInt()[0]
 		yIndex = self.yAxisCombo.itemData( self.yAxisCombo.currentIndex() ).toInt()[0]
 
 		pr = self.vl.dataProvider()
-		fields = pr.fields()
+		from settings_dlg import Settings
+		index2keyFieldMap = Settings.index2keyFieldMap( pr.fields() )
 
 		indexes = []
-		for index, field in fields.iteritems():
+		for index, fld in pr.fields().iteritems():
 			if index == xIndex:
 				indexes.append( xIndex )
 				continue
@@ -243,10 +253,14 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 				indexes.append( yIndex )
 				continue
 
-			filterWdg = self.filterForField( field.name() )
+			filterWdg = self._filterForKey( Settings.fieldName2key( fld.name() ) )
 			if filterWdg and filterWdg.isActive():
 				indexes.append( index )
 
+
+		# the following lists will contain x and y values
+		x = []
+		y = []
 
 		# fetch and loop through the features
 		pr.select( indexes, extent, True )
@@ -254,7 +268,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		f = QgsFeature()
 		while pr.nextFeature( f ):
 			# filter features by spatial filter
-			if geom and not geom.intersects( f.geometry() ):
+			if spatialFilter and not spatialFilter.intersects( f.geometry() ):
 				continue
 
 			# filter features by attribute values
@@ -262,7 +276,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 			ok = True
 			for index, val in attrs.iteritems():
-				filterWdg = self.filterForField( fields[index].name() )
+				filterWdg = self._filterForKey( index2keyFieldMap[ index ] )
 				if not filterWdg:
 					continue
 
@@ -282,15 +296,15 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 			QMessageBox.information(self, "Plot", "No features in the result")
 			return
 
-		from plotWidget import *
+		from plot_wdg import *
 		if plotType == self.PLOT_HIST:
-			dlg = HistogramPlotWdg(x, None, self.xAxisCombo.currentText(), "Frequency", self.titleEdit.text())
+			dlg = HistogramPlotWdg([x], [self.xAxisCombo.currentText(), "Frequency"], self.titleEdit.text())
 		elif plotType == self.PLOT_HIST_LOG:
-			dlg = HistogramPlotWdg(x, None, self.xAxisCombo.currentText(), "log10(Frequency)", self.titleEdit.text(), {'yscale':'log'})
+			dlg = HistogramPlotWdg([x], [self.xAxisCombo.currentText(), "log10(Frequency)"], self.titleEdit.text(), {'yscale':'log'})
 		elif plotType == self.PLOT_SCATTER:
-			dlg = ScatterPlotWdg(x, y, self.xAxisCombo.currentText(), self.yAxisCombo.currentText(), self.titleEdit.text())
+			dlg = ScatterPlotWdg([x, y], [self.xAxisCombo.currentText(), self.yAxisCombo.currentText()], self.titleEdit.text())
 		else:
 			return
 
-		dlg.show()			
+		dlg.show()
 

@@ -34,8 +34,6 @@ class ClassificationDock(QDockWidget):
 		self.setupUi()
 
 	def closeEvent(self, event):
-		self.mainWidget.clear()
-
 		self.emit( SIGNAL( "closed" ), self )
 		return QDockWidget.closeEvent(self, event)
 
@@ -64,6 +62,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		self.canvas = self.iface.mapCanvas()
 		self._prevMapTool = None
+		self._sharedData = {}	# it will contain the classification map (data shared through the all cross sections)
 
 		# create the maptool to define the area of interest
 		self.areaDrawer = PolygonDrawer(self.iface.mapCanvas(), {'color':QColor('black'), 'border':2, 'enableSnap':False, 'keepAfterEnd':True})
@@ -78,13 +77,15 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		# initialize the table that will contain classification buffers
 		self.buffersTable.setModel( self.BuffersTableModel(self.buffersTable) )
 		self.connect( self.buffersTable.selectionModel(), SIGNAL("currentRowChanged(const QModelIndex &, const QModelIndex &)"), self.buffersSelectionChanged)
-		self.connect( self.buffersTable.model(), SIGNAL("rubberBandsUpdateRequested"), self.updateBuffer)
+		self.connect( self.buffersTable.model(), SIGNAL("bufferWidthChanged"), self.updateBuffer)
 
 		# connect actions to the widgets
 		self.connect(self.drawAreaBtn, SIGNAL("clicked()"), self.drawArea)
 		self.connect(self.clearAreaBtn, SIGNAL("clicked()"), self.clearArea)
 		self.connect(self.addBufferBtn, SIGNAL("clicked()"), self.drawBuffer)
 		self.connect(self.delBufferBtn, SIGNAL("clicked()"), self.deleteBuffer)
+		self.connect(self.crossSectionBtn, SIGNAL("clicked()"), self.openCrossSection)
+		self.connect(self.displayClassifiedDataBtn, SIGNAL("clicked()"), self.loadClassifiedData)
 
 
 	def storePrevMapTool(self):
@@ -93,25 +94,57 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			self._prevMapTool = prevMapTool
 
 	def restorePrevMapTool(self):
+		self.areaDrawer.stopCapture()
+		self.segmentDrawer.stopCapture()
 		if self._prevMapTool: 
 			self.canvas.setMapTool(self._prevMapTool)
 
 
-	def clear(self):
+	def showEvent(self, event):
+		self.showRubberBands(True)
+		QWidget.showEvent(self, event)
+
+	def hideEvent(self, event):
+		self.showRubberBands(False)
+		self.restorePrevMapTool()
+		QWidget.hideEvent(self, event)
+
+
+	def deleteLater(self):
+		# clear rubberbands
 		self.clearArea()
 		self.clearBuffers()
 
-	def deleteLater(self):
 		# restore the previous maptool
-		self.areaDrawer.stopCapture()
 		self.restorePrevMapTool()
 
-		# delete the polygon drawer maptool
-		self.areaDrawer.reset()
+		# delete the maptools
 		self.areaDrawer.deleteLater()
 		self.areaDrawer = None
+		self.segmentDrawer.deleteLater()
+		self.segmentDrawer = None
 
 		return QWidget.deleteLater(self)
+
+
+	def showRubberBands(self, show=True):
+		""" show/hide all the rubberbands """
+		if self.areaDrawer.isEmittingPoints:
+			self.areaDrawer.reset()
+		else:
+			self.areaDrawer.rubberBand.show() if show else self.areaDrawer.rubberBand.hide()
+		self.segmentDrawer.reset()
+
+		model = self.buffersTable.model()
+		for row in range(model.rowCount()):
+
+			# get item data
+			data = model.data( model.index(row, 0), Qt.UserRole ).toPyObject()
+			segment, (midlineRb, bufferRb), dlg = data
+
+			midlineRb.show() if show else midlineRb.hide()
+			bufferRb.show() if show else bufferRb.hide()
+			if dlg: dlg.hide()
 
 
 	def drawArea(self):
@@ -127,7 +160,6 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 	def areaCreated(self, polygon):
 		# restore the previous maptool
-		self.areaDrawer.stopCapture()
 		self.restorePrevMapTool()
 	
 
@@ -138,6 +170,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		# set the segment drawer as current maptool
 		self.segmentDrawer.startCapture()
+
 
 	def clearBuffers(self):
 		""" delete all the classification buffers and related rubberbands """
@@ -153,18 +186,15 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 	def midlineBufferCreated(self, line):
 		""" called after the buffer midline is drawn by the user """
 		# restore the previous maptool
-		self.segmentDrawer.stopCapture()
 		self.restorePrevMapTool()
 
+		# check for a valid segment
 		if not line:
 			return
 
-		#TODO: reproject line to layer CRS
-		#line = ...
 		segment = line.asPolyline()
-
-		#TODO: define buffer width in layer CRS unit
-		bufferwidth = 10
+		if len(segment) != 2:
+			return
 
 		# create the midline rubber band
 		midlineRb = QgsRubberBand(self.canvas, False)
@@ -176,13 +206,18 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		bufferRb.setColor( QColor('fuchsia') )
 		bufferRb.setWidth( 1 )
 
-		# draw the buffer midline and area
-		self.redrawBufferRubberBand( bufferRb, segment, bufferwidth )
-		self.redrawMidlineRubberBand( midlineRb, segment )
+		# define buffer width in layer CRS unit
+		if self.canvas.mapUnits() == QGis.Meters:
+			bufferwidth = 200
+		else:
+			bufferwidth = 10
 
-		row = self.buffersTable.model().append( bufferwidth, (midlineRb, bufferRb) )
+		# append the new classification buffer to the table
+		data = [segment, (midlineRb, bufferRb), None]
+		row = self.buffersTable.model().append( bufferwidth, data )
 		self.buffersTable.setCurrentIndex( self.buffersTable.model().index( row, 0 ) )
 		
+
 	def redrawMidlineRubberBand(self, rubberBand, segment):
 		""" re-draw the midline rubberband by segment """
 		rubberBand.reset(False)
@@ -200,7 +235,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		# create a buffer around the line
 		import math
 		(x1,y1), (x2,y2) = segment
-		angle = math.atan((y2-y1)/(x2-x1)) if abs(x2-x1) >= 0.00001 else math.pi/2
+		angle = math.atan(float(y2-y1)/(x2-x1)) if x2-x1 != 0 else math.pi/2
 
 		xincr, yincr = width*math.sin(angle), width*math.cos(angle)
 
@@ -212,6 +247,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		rubberBand.show()
 
+
 	def deleteBuffer(self, row=None):
 		""" delete the classification buffer at row and its rubberbands """
 		model = self.buffersTable.model()
@@ -222,20 +258,27 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		if row < 0 or row >= model.rowCount():
 			return
 
-		midlineRb, bufferRb = model.data( model.index(row, 0), Qt.UserRole ).toPyObject()
+		# get item data
+		data = model.data( model.index(row, 0), Qt.UserRole ).toPyObject()
+		segment, (midlineRb, bufferRb), dlg = data
+
+		# delete the item
 		model.removeRows( row, 1 )
 
+		# destroy item data
 		midlineRb.reset(False)
 		bufferRb.reset(True)
+		if dlg:
+			dlg.close()
+			dlg.deleteLater()
 
 	def updateBuffer(self, index):
 		""" re-draw the rubberbands for the classification buffer at index """
 		model = self.buffersTable.model()
 
-		buffersize = model.data( model.index(index.row(), 0) ).toInt()[0]
-		midlineRb, bufferRb = model.data( model.index(index.row(), 0), Qt.UserRole ).toPyObject()
-
-		segment = QgsGeometry(midlineRb.asGeometry()).asPolyline()
+		buffersize = model.data( model.index(index.row(), 0) ).toDouble()[0]
+		data = model.data( model.index(index.row(), 0), Qt.UserRole ).toPyObject()
+		segment, (midlineRb, bufferRb), dlg = data
 
 		self.redrawBufferRubberBand(bufferRb, segment, buffersize)
 		self.redrawMidlineRubberBand(midlineRb, segment)
@@ -249,10 +292,9 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			if not index.isValid():
 				continue
 
-			buffersize = model.data( model.index(index.row(), 0) ).toInt()[0]
-			midlineRb, bufferRb = model.data( model.index(index.row(), 0), Qt.UserRole ).toPyObject()
-
-			segment = QgsGeometry(midlineRb.asGeometry()).asPolyline()
+			buffersize = model.data( model.index(index.row(), 0) ).toDouble()[0]
+			data = model.data( model.index(index.row(), 0), Qt.UserRole ).toPyObject()
+			segment, (midlineRb, bufferRb), dlg = data
 
 			midlineRb.setColor(QColor('#88FFFF')) if index == current else midlineRb.setColor(QColor('#00FFFF'))	# color cyan
 			bufferRb.setColor(QColor('#FF88FF')) if index == current else bufferRb.setColor(QColor('#FF00FF'))	# color fuchsia
@@ -260,10 +302,210 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			self.redrawBufferRubberBand(bufferRb, segment, buffersize)
 			self.redrawMidlineRubberBand(midlineRb, segment)
 
+	def openCrossSection(self):
+		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+		try:
+			self._openCrossSection()
+		finally:
+			QApplication.restoreOverrideCursor()
+
+	def _openCrossSection(self):
+		""" open a cross section displaying geometries within this 
+			classification buffer """
+		index = self.buffersTable.currentIndex()
+		if not index.isValid():
+			return
+
+		# get the geometry which defines the area of interest
+		areaGeom = self.areaDrawer.geometry()
+		if not areaGeom or areaGeom.isGeosEmpty():
+			QMessageBox.warning(self, "No Area of interest", "Define an Area of interest and then try again.")
+			return
+
+		# get midline and area geometries for the selected classification buffer
+		model = self.buffersTable.model()
+		data = model.data( model.index(index.row(), 0), Qt.UserRole ).toPyObject()
+		segment, (midlineRb, bufferRb), dlg = data
+
+		midlineGeom = midlineRb.asGeometry()
+		bufferGeom = bufferRb.asGeometry()
+
+		# compute the spatial filter
+		filteringGeom = bufferGeom.intersection( areaGeom )
+		if not filteringGeom or filteringGeom.isGeosEmpty():
+			QMessageBox.warning(self, "Invalid area", "Intersection between the Area of interest and the selected classification buffer area is invalid or empty.")
+			return
+
+		# convert the spatial filter to the layer CRS
+		toLayerCrsTransform = QgsCoordinateTransform( self.canvas.mapRenderer().destinationCrs(), self.vl.crs() )
+		ret = filteringGeom.transform( toLayerCrsTransform )
+		if ret != 0:
+			QMessageBox.warning(self, "Invalid area", "Unable to tranform the selected area to the layer CRS.")
+			return
+
+		# get the depth field index
+		pr = self.vl.dataProvider()
+		from settings_dlg import Settings
+		key2index = Settings.key2indexFieldMap( pr.fields() )
+		depthIndex =  key2index['depth']
+
+		# the following x and y lists will contain respectively the distance 
+		# along the buffer and the depth, the info list instead will contain 
+		# additional data
+		x, y, info = [], [], []
+
+		# fetch and loop through the features
+		pr.select([ depthIndex ], filteringGeom.boundingBox(), True)
+
+		toMapCrsTransform = QgsCoordinateTransform( self.vl.crs(), self.canvas.mapRenderer().destinationCrs() )
+		f = QgsFeature()
+		while pr.nextFeature( f ):
+			geom = f.geometry()
+
+			# filter features by spatial filter
+			if not filteringGeom.contains( geom ):
+				continue
+
+			# transform to map CRS
+			if geom.transform( toMapCrsTransform ) != 0:
+				continue
+			geom = QgsGeometry.fromPoint(geom.asPoint())
+
+			# store distance and depth values
+			x.append( midlineGeom.distance( geom ) )
+			y.append( f.attributeMap()[ depthIndex ].toDouble()[0] * -1 )
+			info.append( f.id() )
+
+		if len(x) <= 0:
+			QMessageBox.information(self, "Cross section", "No features in the result")
+			return
+
+		# plot now!
+		if not dlg:
+			from plot_wdg import CrossSectionDlg
+			dlg = CrossSectionDlg(self._sharedData, self)
+
+			# store the dialog into the item data
+			data[2] = dlg
+			model.setData( model.index(index.row(), 0), QVariant(data), Qt.UserRole )
+
+		dlg.setData(x, y, info)
+		dlg.setLabels( "Distance", "Depth" )
+
+		self.updateClassification()
+		dlg.show()
+
+	def updateClassification(self):
+		model = self.buffersTable.model()
+
+		# update the earthquakes classification
+		self._sharedData.clear()
+
+		for row in range(model.rowCount()):
+			dlg = model.data( model.index(row, 0), Qt.UserRole ).toPyObject()[2]
+			if dlg == None:
+				continue
+
+			classified = (shallow, deep) = dlg.classify()
+
+			# update the shared data
+			for typeIndex, data in enumerate( classified ):
+				for fid in data:
+					# avoid duplicates
+					if self._sharedData.has_key(fid):
+						# do not update shallow earthquakes
+						if self._sharedData[ fid ] == 0:	
+							continue	# already present
+
+					self._sharedData[ fid ] = typeIndex
+
+
+			dlg.setDirty(True)
+
+
+	def loadClassifiedData(self):
+		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+
+		# store the current render flag state, then unset it
+		prev_render_flag = self.iface.mapCanvas().renderFlag()
+		self.iface.mapCanvas().setRenderFlag( False )
+		try:
+			self._loadClassifiedData()
+		finally:
+			# restore the render flag state
+			self.iface.mapCanvas().setRenderFlag( prev_render_flag )
+
+			QApplication.restoreOverrideCursor()
+
+	def _loadClassifiedData(self):
+		outLayers = {}
+
+		# get the geometry which defines the area of interest
+		areaGeom = self.areaDrawer.geometry()
+		if not areaGeom or areaGeom.isGeosEmpty():
+			QMessageBox.warning(self, "No Area of interest", "Define an Area of interest and then try again.")
+			return
+
+		# convert the spatial filter to the layer CRS
+		toLayerCrsTransform = QgsCoordinateTransform( self.canvas.mapRenderer().destinationCrs(), self.vl.crs() )
+		ret = areaGeom.transform( toLayerCrsTransform )
+		if ret != 0:
+			QMessageBox.warning(self, "Invalid area", "Unable to tranform the selected area to the layer CRS.")
+			return
+
+		# update the classification
+		self.updateClassification()
+
+		# fetch and loop through the features
+		inpr = self.vl.dataProvider()
+		inpr.select(self.vl.pendingAllAttributesList(), areaGeom.boundingBox(), True)
+
+		toMapCrsTransform = QgsCoordinateTransform( self.vl.crs(), self.canvas.mapRenderer().destinationCrs() )
+		f = QgsFeature()
+		while inpr.nextFeature( f ):
+			geom = f.geometry()
+
+			# filter features by spatial filter
+			if not areaGeom.contains( geom ):
+				continue
+
+			# skip unclassified data
+			if f.id() not in self._sharedData:
+				continue
+			classType = self._sharedData[ f.id() ]
+
+			# transform to map CRS
+			if geom.transform( toMapCrsTransform ) != 0:
+				continue
+			geom = QgsGeometry.fromPoint(geom.asPoint())
+
+			# create layer if not already done and store it in the layer map
+			if not outLayers.has_key(classType):
+				name = 'shallow' if classType == 0 else 'deep'
+				outvl = outLayers[ classType ] = QgsVectorLayer("Point", name, "memory")
+				outpr = outvl.dataProvider()
+			else:
+				outvl = outLayers[ classType ]
+
+			# add the feature
+			outvl.dataProvider().addFeatures( [ f ] )
+
+
+		# update layer's extent when new features have been added
+		# because change of extent in provider is not propagated to the layer
+		outvl.updateExtents()
+
+		# add all the layers to the map
+		for name, vl in outLayers.iteritems():
+			if hasattr(QgsMapLayerRegistry.instance(), 'addMapLayers'):	# available from QGis >= 1.8
+				QgsMapLayerRegistry.instance().addMapLayers( [ vl ] )
+			else:
+				QgsMapLayerRegistry.instance().addMapLayer( vl )
+
 
 	class BuffersTableModel(QStandardItemModel):
 		def __init__(self, parent=None):
-			self.header = ["Buffer size"]
+			self.header = ["Buffer width"]
 			QStandardItemModel.__init__(self, 0, len(self.header), parent)
 
 		def headerData(self, section, orientation, role):
@@ -274,7 +516,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 					return QVariant(section+1)
 			return QVariant()
 
-		def append(self, buffersize, rubberBands):
+		def append(self, buffersize, data):
 			item = QStandardItem(unicode( buffersize ))
 			item.setFlags( item.flags() | Qt.ItemIsEditable )
 
@@ -282,12 +524,12 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 			# store the rubberbands as user data
 			row = self.rowCount()-1
-			self.setData(self.index(row, 0), QVariant(rubberBands), Qt.UserRole)
+			self.setData(self.index(row, 0), QVariant(data), Qt.UserRole)
 			return row
 
 		def setData(self, index, data, role=Qt.EditRole):
 			ret = QStandardItemModel.setData(self, index, data, role)
 			if role == Qt.EditRole and index.column() == 0:
-				self.emit( SIGNAL("rubberBandsUpdateRequested"), index )
+				self.emit( SIGNAL("bufferWidthChanged"), index )
 			return ret
 

@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 
 """
-/***************************************************************************
-Name			 	 : GEM Modellers Toolkit plugin (GEM-MT)
-Description          : Analysing and Processing Earthquake Catalogue Data
-Date                 : Jun 21, 2012 
-copyright            : (C) 2012 by Giuseppe Sucameli (Faunalia)
-email                : brush.tyler@gmail.com
+/****************************************************************************
+Name			 	: GEM Modellers Toolkit plugin (GEM-MT)
+Description			: Analysing and Processing Earthquake Catalogue Data
+Date				: Jun 21, 2012 
+copyright			: (C) 2012 by Giuseppe Sucameli (Faunalia)
+email				: brush.tyler@gmail.com
+ ****************************************************************************/
 
- ***************************************************************************/
-
-/***************************************************************************
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- ***************************************************************************/
+/****************************************************************************
+ *																			*
+ *	This program is free software; you can redistribute it and/or modify	*
+ *	it under the terms of the GNU General Public License as published by	*
+ *	the Free Software Foundation; either version 2 of the License, or		*
+ *	(at your option) any later version.										*
+ *																			*
+ ****************************************************************************/
 """
 
 # Python Qt4 bindings for GUI objects
@@ -38,31 +37,87 @@ from pylab import *
 # Qt4Agg backend. It also inherits from QWidget
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 
+# import the NavigationToolbar Qt4Agg widget
+from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
+
+
 class PlotWdg(FigureCanvas):
 	"""Class to represent the FigureCanvas widget"""
-	def __init__(self, xValues, yValues, xLabel, yLabel, title=None, props=None):
-
-		self.x, self.y = xValues, yValues
-		self.xLabel, self.yLabel = xLabel, yLabel
-		self.title = title
-		self.props = props if isinstance(props, dict) else {}
+	def __init__(self, data=None, labels=None, title=None, props=None):
 
 		self.fig = Figure()
 		self.axes = self.fig.add_subplot(111)
 
-		self.axes.set_xlabel( self.xLabel )
-		self.axes.set_ylabel( self.yLabel )
-		if self.title and self.title != "":
-			self.axes.set_title( self.title )
+		# initialize the canvas where the Figure renders into
+		FigureCanvas.__init__(self, self.fig)
+
+		self._dirty = False
+		self.collections = []
+
+		if not data: data = []
+		self.setData( data[0] if len(data) > 0 else None, data[1] if len(data) > 1 else None, data[2] if len(data) > 2 else None )
+
+		if not labels: labels = []
+		self.setLabels( labels[0] if len(labels) > 0 else None, labels[1] if len(labels) > 1 else None )
+
+		self.setTitle( title )
+
+		self.props = props if isinstance(props, dict) else {}
 
 		yscale = self.props.get('yscale', None)
 		if yscale:
 			self.axes.set_yscale( yscale )
 
-		self._plot()
 
-		# initialize the canvas where the Figure renders into
-		FigureCanvas.__init__(self, self.fig)
+	def itemAt(self, index):
+		if index >= len(self.x):
+			return None
+		return (self.x[index] if self.x else None, self.y[index] if self.y else None, self.info[index] if self.info else None)
+
+	def __del__(self):
+		self._clear()
+
+	def setDirty(self, val):
+		self._dirty = val
+
+	def showEvent(self, event):
+		if self._dirty:
+			# remove the old stuff
+			self._clear()
+			# plot the new data
+			self._plot()
+			# unset the dirty flag
+			self._dirty = False
+			# udpdate axis limits
+			self.axes.relim()	# it doesn't shrink until removing all the objects on the axis
+			# re-draw
+			self.refresh()
+
+		return FigureCanvas.showEvent(self, event)
+
+	def setData(self, x, y, info=None):
+		self.x, self.y = x or [], y or []
+		self.info = info or []
+		self._dirty = True
+
+	def setTitle(self, title):
+		self.axes.set_title( title or "" )
+
+	def setLabels(self, xLabel, yLabel):
+		self.axes.set_xlabel( xLabel or "" )
+		self.axes.set_ylabel( yLabel or "" )
+
+	def refresh(self):
+		self.fig.canvas.draw()
+
+	def _clear(self):
+		for item in self.collections:
+			try:
+				item.remove()
+			except AttributeError:
+				pass
+
+		self.collections = []
 
 	def _plot(self):
 		pass
@@ -104,8 +159,8 @@ class PlotWdg(FigureCanvas):
 
 class HistogramPlotWdg(PlotWdg):
 
-	def __init__(self, *argv):
-		super(HistogramPlotWdg, self).__init__(*argv)
+	def __init__(self, *args, **kwargs):
+		PlotWdg.__init__(self, *args, **kwargs)
 
 	def _plot(self):
 		# convert values, then create the plot
@@ -131,17 +186,19 @@ class HistogramPlotWdg(PlotWdg):
 				#self.axes.xaxis.set_minor_locator( HourLocator() )
 				#bins = timedelta.days * 4	# four bins for a day
 
-			self.axes.hist(date2num(x), bins=50)
+			n, bins, patches = self.axes.hist(date2num(x), bins=50)
 			self.fig.autofmt_xdate()
 
 		else:
-			self.axes.hist(x, bins=50)
+			n, bins, patches = self.axes.hist(x, bins=50)
+
+		self.collections.append( patches )
 
 
 class ScatterPlotWdg(PlotWdg):
 
-	def __init__(self, *argv):
-		super(ScatterPlotWdg, self).__init__(*argv)
+	def __init__(self, *args, **kwargs):
+		PlotWdg.__init__(self, *args, **kwargs)
 
 	def _plot(self):
 		# convert values, then create the plot
@@ -168,12 +225,271 @@ class ScatterPlotWdg(PlotWdg):
 				#self.axes.xaxis.set_minor_locator( HourLocator() )
 				#bins = timedelta.days * 4	# four bins for a day
 
-			self.axes.plot_date(x, y)
+			items = self.axes.plot_date(x, y)
 			self.fig.autofmt_xdate()
 
 		else:
-			self.axes.scatter(x, y)
+			items = self.axes.scatter(x, y)
 
+		self.collections.append( items )
+
+
+class CrossSectionDlg(QtGui.QDialog):
+
+	def __init__(self, classificationMap, parent=None):
+		QtGui.QDialog.__init__(self, parent)
+		self._classificationMap = classificationMap
+
+		layout = QtGui.QGridLayout(self)
+
+		self.plot = CrossSectionGraph( self._classificationMap )
+		layout.addWidget(self.plot, 0, 0, 1, 3)
+
+		self.hLineBtn = QtGui.QToolButton(self)
+		self.hLineBtn.setText( "Draw horizontal line" )
+		self.hLineBtn.setCheckable(True)
+		layout.addWidget(self.hLineBtn, 1, 0, 1, 1)
+		self.connect(self.hLineBtn, QtCore.SIGNAL("toggled(bool)"), self.moveHLine)
+
+		self.oLineBtn = QtGui.QToolButton(self)
+		self.oLineBtn.setText( "Draw oblique line" )
+		self.oLineBtn.setCheckable(True)
+		layout.addWidget(self.oLineBtn, 1, 1, 1, 1)
+		self.connect(self.oLineBtn, QtCore.SIGNAL("toggled(bool)"), self.drawOLine)
+
+		#TODO add a button to save the graph as image
+		#self.nav = NavigationToolbar(self.plot, self)
+		#layout.addWidget(self.nav, 1, 2, 1, 1)
+
+		# store the lines for the classificator
+		self.hline = self.oline = None
+
+		# used in the mouse event handler
+		self.cidpress = self.cidmotion = self.cidrelease = None
+		self._startPoint = None
+		self._whatLine = 0
+
+		self.createLines()
+
+	def setDirty(self, dirty):
+		self.plot.setDirty(dirty)
+
+	def setData(self, x, y, data=None):
+		self.plot.setData(x, y, data)
+
+	def setTitle(self, title):
+		self.plot.setTitle(title)
+
+	def setLabels(self, xLabel, yLabel):
+		self.plot.setLabels(xLabel, yLabel)
+
+
+	def moveHLine(self, toggled=True):
+		if not toggled:
+			self.stopMouseCapture()
+			return
+
+		self.oLineBtn.setChecked(False)
+
+		self._whatLine = 0	# hor line
+		self.startMouseCapture()
+
+	def drawOLine(self, toggled=True):
+		if not toggled:
+			self.stopMouseCapture()
+			return
+
+		self.hLineBtn.setChecked(False)
+
+		self._whatLine = 1	# hor line
+		self.startMouseCapture()
+
+
+	def createLines(self):
+		self.hline = self.plot.axes.axhline(y=0, lw=3., color='b', alpha=0.4)
+
+		self.oline = ClippedLine2D((0,0), (0,1), lw=3., color='r', alpha=0.4)
+		self.plot.axes.add_line(self.oline)
+
+	def startMouseCapture(self):
+		if not self.cidpress:
+			self.cidpress = self.plot.fig.canvas.mpl_connect('button_press_event', self.onMousePress)
+		if not self.cidrelease:
+			self.cidrelease = self.plot.fig.canvas.mpl_connect('button_release_event', self.onMouseRelease)
+		if not self.cidmotion:
+			self.cidmotion = self.plot.fig.canvas.mpl_connect('motion_notify_event', self.onMouseMove)
+
+	def stopMouseCapture(self):
+		if self.cidpress:
+			self.plot.fig.canvas.mpl_disconnect(self.cidpress)
+			self.cidpress = None
+		if self.cidmotion:
+			self.plot.fig.canvas.mpl_disconnect(self.cidmotion)
+			self.cidmotion = None
+		if self.cidrelease:
+			self.plot.fig.canvas.mpl_disconnect(self.cidrelease)
+			self.cidrelease = None
+
+
+	def onMousePress(self, event):
+		if event.inaxes != self.plot.axes: return
+
+		self._startPoint = event.xdata, event.ydata
+
+		if self._whatLine == 0:
+			# move the horizontal line
+			self.hline.set_ydata([event.ydata, event.ydata])
+			self.plot.refresh()
+
+	def onMouseRelease(self, event):
+		self._startPoint = None
+		
+		self.stopMouseCapture()
+		self.hLineBtn.setChecked(False)
+		self.oLineBtn.setChecked(False)
+
+		self.plot.refresh()
+
+
+	def onMouseMove(self, event):
+		if not self._startPoint: return
+		if event.inaxes != self.plot.axes: return
+
+		# create or update the line
+		if self._whatLine == 0:
+			# move the horizontal line
+			self.hline.set_ydata([event.ydata, event.ydata])
+
+		else:
+			# oblique line
+			x0, y0 = self._startPoint
+
+			xlim = self.plot.axes.get_xlim()
+			ylim = self.plot.axes.get_ylim()
+
+			# adjust line angle, the line is valid only from UL to BR
+			dx = (event.xdata - x0)
+			dy = (event.ydata - y0)
+
+			if (dx >= 0 and dy <= 0) or (dx <= 0 and dy >= 0):
+				x1, y1 = event.xdata, event.ydata
+			elif abs(dx * (ylim[1]-ylim[0])) <= abs(dy * (xlim[1]-xlim[0])):
+				x1, y1 = x0, event.ydata
+			else:
+				x1, y1 = event.xdata, y0
+
+			self.oline.set_data( (x0,x1), (y0,y1) )
+
+		# refresh
+		self.plot.refresh()
+
+
+	def classify(self):
+		hy = self.hline.get_ydata()[0]
+
+		(ox0,ox1),(oy0,oy1) = self.oline.get_data()
+		if ox1 == ox0:
+			ocoeff = None	# the oblique line is a vertical line...
+		else:
+			ocoeff = float(oy1 - oy0) / (ox1 - ox0)
+		
+		# classify earthquakes and discard indeterminate ones 
+		shallow, deep = [], []
+		for index in range(len(self.plot.x)):
+			point = self.plot.itemAt(index)
+			if not point:
+				continue
+			px, py, info = point
+
+			if py > hy:
+				shallow.append( info )
+			elif ocoeff == None:
+				if px <= ox0:
+					deep.append( info )
+			else:
+				y = ocoeff * (px - ox0) + oy0
+				if py <= y:
+					deep.append( info )
+
+		return (shallow, deep)
+
+
+class CrossSectionGraph(PlotWdg):
+
+	def __init__(self, classificationMap, *args, **kwargs):
+		PlotWdg.__init__(self,	*args, **kwargs)
+		self._classificationMap = classificationMap
+
+	def _plot(self):
+		# convert values, then create the plot
+		x = map(PlotWdg._valueFromQVariant, self.x)
+		y = map(PlotWdg._valueFromQVariant, self.y)
+
+		# split values in 3 classes: shallow, deep and unclassified earthquakes
+		classes = (shallow, deep, unclassified) = ( ([],[]), ([],[]), ([],[]) )
+		for index in range(len(self.x)):
+			fid = self.info[index]
+			if not self._classificationMap.has_key( fid ):
+				classData = classes[2]	# unclassified
+			else:
+				classData = classes[ self._classificationMap[ fid ] ]
+			classData[0].append( self.x[index] )
+			classData[1].append( self.y[index] )
+		
+		# plot the both the earthquakes classes
+		if shallow[0] and shallow[1]:
+			shallowItems = self.axes.scatter(shallow[0], shallow[1], marker='o', c='r')
+			self.collections.append( shallowItems )
+
+		if deep[0] and deep[1]:
+			deepItems = self.axes.scatter(deep[0], deep[1], marker='o', c='b')
+			self.collections.append( deepItems )
+
+		if unclassified[0] and unclassified[1]:
+			unclassifiedItems = self.axes.scatter(unclassified[0], unclassified[1], marker='x', c='k')
+			self.collections.append( unclassifiedItems )
+
+
+
+class ClippedLine2D(Line2D):
+	"""
+	Clip the xlimits to the axes view limits
+	"""
+
+	def __init__(self, *args, **kwargs):
+		Line2D.__init__(self, *args, **kwargs)
+
+	def draw(self, renderer):
+		x, y = self.get_data()
+
+		if len(x) == 2 or len(y) == 2:
+			xlim = self.axes.get_xlim()
+			ylim = self.axes.get_ylim()
+
+			x0, y0 = x[0], y[0]
+			x1, y1 = x[1], y[1]
+
+			if x0 == x1:	# vertical
+				x, y = (x0, x0), ylim
+			elif y0 == y1:
+				x, y = xlim, (y0, y0)
+			else:
+				coeff = float(y1 - y0) / (x1 - x0)
+				minx = (ylim[0] - y0) / coeff + x0
+				maxx = (ylim[1] - y0) / coeff + x0
+				miny = coeff * (xlim[0] - x0) + y0
+				maxy = coeff * (xlim[1] - x0) + y0
+
+				# swap values if in the wrong position (coeff < 0)
+				if minx > maxx : minx, maxx = maxx, minx
+				if miny > maxy : miny, maxy = maxy, miny
+
+				x = min(maxx, xlim[1]), max(minx, xlim[0])
+				y = max(miny, ylim[0]), min(maxy, ylim[1])
+
+			self.set_data(x, y)
+
+		Line2D.draw(self, renderer)
 
 
 if __name__ == "__main__":

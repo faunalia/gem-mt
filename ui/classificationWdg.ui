@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>275</width>
-    <height>331</height>
+    <height>334</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -111,7 +111,7 @@
        </widget>
       </item>
       <item row="3" column="2">
-       <widget class="QPushButton" name="editBufferBtn">
+       <widget class="QPushButton" name="crossSectionBtn">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
           <horstretch>0</horstretch>
@@ -144,9 +144,9 @@ cross section</string>
     </widget>
    </item>
    <item>
-    <widget class="QPushButton" name="runClassifictionBtn">
+    <widget class="QPushButton" name="displayClassifiedDataBtn">
      <property name="text">
-      <string>Run classification</string>
+      <string>Display classified earthquakes</string>
      </property>
     </widget>
    </item>
