@@ -86,13 +86,8 @@ class RangeFilter(QtGui.QWidget):
 
 
     def checkValue(self, val):
-        if isinstance(val, QtCore.QVariant): 
-            realval, ok = val.toInt()
-            if not val.isValid() or not ok:
-                return False
-            val = realval
-
-        return val >= self.lowValue() and val <= self.highValue()
+        val = self._getValue(val)
+        return val is not None and val >= self.lowValue() and val <= self.highValue()
 
 
     def _toSliderValue(self, val):
@@ -155,6 +150,16 @@ class RangeFilter(QtGui.QWidget):
         self.setHighValue( self._fromSliderValue(val) )
 
 
+    @classmethod
+    def _getValue(self, val):
+        if isinstance(val, QtCore.QVariant): 
+            intval, ok = val.toInt()
+            if val.isValid() and ok:
+                return intval
+            return
+        return val
+
+
 class DoubleRangeFilter(RangeFilter):
     def __init__(self, *args):
         super(DoubleRangeFilter, self).__init__(*args)
@@ -177,21 +182,21 @@ class DoubleRangeFilter(RangeFilter):
         self.slider.setMaximum( self._toSliderValue(self.maximum()) )
 
 
-    def checkValue(self, val):
-        if isinstance(val, QtCore.QVariant): 
-            realval, ok = val.toDouble()
-            if not val.isValid() or not ok:
-                return False
-            val = realval
-
-        return super(DoubleRangeFilter, self).checkValue( val )
-
-
     def _toSliderValue(self, val):
         return val * (10**self.decimals())
 
     def _fromSliderValue(self, val):
         return float(val) / (10**self.decimals())
+
+
+    @classmethod
+    def _getValue(self, val):
+        if isinstance(val, QtCore.QVariant): 
+            realval, ok = val.toDouble()
+            if val.isValid() and ok:
+                return realval
+            return
+        return val
 
 
 class DateRangeFilter(RangeFilter):
@@ -203,13 +208,13 @@ class DateRangeFilter(RangeFilter):
         self.maxSpin = QtGui.QDateEdit(self)
 
         self.minSpin.setCalendarPopup(True)
-        self.minSpin.setDisplayFormat("dd.MM.yyyy")#QtCore.QLocale.system().dateFormat(QtCore.QLocale.ShortFormat))
+        self.minSpin.setDisplayFormat("yyyy.MM.dd")#QtCore.QLocale.system().dateFormat(QtCore.QLocale.ShortFormat))
         self.maxSpin.setCalendarPopup(True)
-        self.maxSpin.setDisplayFormat("dd.MM.yyyy")#QtCore.QLocale.system().dateFormat(QtCore.QLocale.ShortFormat))
+        self.maxSpin.setDisplayFormat("yyyy.MM.dd")#QtCore.QLocale.system().dateFormat(QtCore.QLocale.ShortFormat))
 
-        minFunc = lambda obj: obj.minimumDateTime().toTime_t()
-        maxFunc = lambda obj: obj.maximumDateTime().toTime_t()
-        valueFunc = lambda obj: obj.dateTime().toTime_t()
+        minFunc = lambda obj: self._fixupDateTime(obj.minimumDateTime()).toTime_t()
+        maxFunc = lambda obj: self._fixupDateTime(obj.maximumDateTime()).toTime_t()
+        valueFunc = lambda obj: self._fixupDateTime(obj.dateTime()).toTime_t()
         setMinFunc = lambda obj, val: obj.setMinimumDateTime( self._convertToDateTime( val ) )
         setMaxFunc = lambda obj, val: obj.setMaximumDateTime( self._convertToDateTime( val ) )
         setValueFunc = lambda obj, val: obj.setDateTime( self._convertToDateTime( val ) )
@@ -228,8 +233,8 @@ class DateRangeFilter(RangeFilter):
         self.maxSpin.setMaximum = lambda val: setMaxFunc( self.maxSpin, val )
         self.maxSpin.setValue = lambda val: setValueFunc( self.maxSpin, val )
 
-        self.connect( self.minSpin, QtCore.SIGNAL("valueChanged(const QDate &)"), self.setLowValue )
-        self.connect( self.maxSpin, QtCore.SIGNAL("valueChanged(const QDate &)"), self.setHighValue )
+        self.connect( self.minSpin, QtCore.SIGNAL("dateChanged(const QDate &)"), self.setLowValue )
+        self.connect( self.maxSpin, QtCore.SIGNAL("dateChanged(const QDate &)"), self.setHighValue )
 
     def minimumDate(self):
         return self.minSpin.minimumDate()
@@ -252,53 +257,50 @@ class DateRangeFilter(RangeFilter):
         self.setHighValue( self._fromSliderValue(val) )
 
 
-    def checkValue(self, val):
-        if isinstance(val, QtCore.QVariant):
-            if not val.isValid(): return False
-
-            ok = True
-            if val.type() == QtCore.QVariant.Int:
-                realval, ok = val.toInt()
-            elif val.type() in (QtCore.QVariant.Date, QtCore.QVariant.DateTime, QtCore.QVariant.String):
-                realval = val.toDateTime()
-                ok = realval.isValid()
-            else:
-                return False
-
-            if not ok: 
-                return False
-
-            val = realval
-
-        val = self._convertToValue( val )
-        return super(DateRangeFilter, self).checkValue( val )
-
-
     def _toSliderValue(self, val):
         return (self._convertToValue( val ) - self.minimum())/3600
 
     def _fromSliderValue(self, val):
         return self._convertToValue( val*3600 + self.minimum() )
 
+
+    @classmethod
+    def _getValue(self, val):
+        if not isinstance(val, QtCore.QVariant): 
+            return self._convertToValue( val )
+
+        if not val.isValid(): return
+
+        ok = False
+        if val.type() == QtCore.QVariant.Int:
+            newval, ok = val.toInt()
+        elif val.type() in (QtCore.QVariant.Date, QtCore.QVariant.DateTime, QtCore.QVariant.String):
+            newval = val.toDateTime()
+            ok = newval.isValid()
+
+        if not ok: return
+
+        return self._convertToValue( newval )
+
+    @classmethod
     def _convertToDateTime(self, val):
         if isinstance(val, (int,long)):
-            dt = QtCore.QDateTime.fromTime_t(val)
-            #dt.setTime( QtCore.QTime(0,0,0) )
-            return dt
+            return self._fixupDateTime( QtCore.QDateTime.fromTime_t(val) )
         elif isinstance(val, QtCore.QDate):
             return QtCore.QDateTime(val, QtCore.QTime(0,0,0))
         elif isinstance(val, QtCore.QDateTime):
-             return val
+             return self._fixupDateTime( val )
 
+    @classmethod
     def _convertToValue(self, val):
-        if isinstance(val, (int,long)):
-            return val
-        elif isinstance(val, QtCore.QDate):
-            return QtCore.QDateTime(val, QtCore.QTime(0,0,0)).toTime_t()
-        elif isinstance(val, QtCore.QDateTime):
-             val.setTime( QtCore.QTime(0,0,0) )
-             return val.toTime_t()
+        dt = self._convertToDateTime(val)
+        if dt:
+            return self._fixupDateTime( dt ).toTime_t()
 
+    @classmethod
+    def _fixupDateTime(self, dt):
+        dt.setTime(QtCore.QTime(0,0,0))
+        return dt
 
 
 if __name__ == "__main__":
