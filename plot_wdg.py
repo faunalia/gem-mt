@@ -35,13 +35,12 @@ from pylab import *
 
 # import the Qt4Agg FigureCanvas object, that binds Figure to
 # Qt4Agg backend. It also inherits from QWidget
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
 
 # import the NavigationToolbar Qt4Agg widget
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
+from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg
 
-
-class PlotWdg(FigureCanvas):
+class PlotWdg(FigureCanvasQTAgg):
 	"""Class to represent the FigureCanvas widget"""
 	def __init__(self, data=None, labels=None, title=None, props=None):
 
@@ -49,7 +48,7 @@ class PlotWdg(FigureCanvas):
 		self.axes = self.fig.add_subplot(111)
 
 		# initialize the canvas where the Figure renders into
-		FigureCanvas.__init__(self, self.fig)
+		FigureCanvasQTAgg.__init__(self, self.fig)
 
 		self._dirty = False
 		self.collections = []
@@ -74,8 +73,24 @@ class PlotWdg(FigureCanvas):
 			return None
 		return (self.x[index] if self.x else None, self.y[index] if self.y else None, self.info[index] if self.info else None)
 
-	def __del__(self):
+
+	def delete(self):
 		self._clear()
+
+		# unset delete function
+		self.delete = lambda: None
+
+	def __del__(self):
+		self.delete()
+
+	def deleteLater(self, *args):
+		self.delete()
+		super(self.__class__, self).deleteLater(*args)
+		
+	def destroy(self, *args):
+		self.delete()
+		super(self.__class__, self).destroy(*args)
+
 
 	def setDirty(self, val):
 		self._dirty = val
@@ -91,9 +106,9 @@ class PlotWdg(FigureCanvas):
 			# udpdate axis limits
 			self.axes.relim()	# it doesn't shrink until removing all the objects on the axis
 			# re-draw
-			self.refresh()
+			self.draw()
 
-		return FigureCanvas.showEvent(self, event)
+		return super(PlotWdg, self).showEvent(event)
 
 	def setData(self, x, y, info=None):
 		self.x, self.y = x or [], y or []
@@ -106,9 +121,6 @@ class PlotWdg(FigureCanvas):
 	def setLabels(self, xLabel, yLabel):
 		self.axes.set_xlabel( xLabel or "" )
 		self.axes.set_ylabel( yLabel or "" )
-
-	def refresh(self):
-		self.fig.canvas.draw()
 
 	def _clear(self):
 		for item in self.collections:
@@ -234,42 +246,32 @@ class ScatterPlotWdg(PlotWdg):
 		self.collections.append( items )
 
 
-class CrossSectionDlg(QtGui.QDialog):
+class PlotDlg(QtGui.QDialog):
+	def __init__(self, *args, **kwargs):
+		QtGui.QDialog.__init__(self, kwargs.get('parent', None))
 
-	def __init__(self, classificationMap, parent=None):
-		QtGui.QDialog.__init__(self, parent)
-		self._classificationMap = classificationMap
+		layout = QtGui.QVBoxLayout(self)
 
-		layout = QtGui.QGridLayout(self)
+		self.plot = self.createPlot()
+		layout.addWidget(self.plot)
 
-		self.plot = CrossSectionGraph( self._classificationMap )
-		layout.addWidget(self.plot, 0, 0, 1, 3)
+		self.nav = self.createToolBar()
+		layout.addWidget(self.nav)
 
-		self.hLineBtn = QtGui.QToolButton(self)
-		self.hLineBtn.setText( "Draw horizontal line" )
-		self.hLineBtn.setCheckable(True)
-		layout.addWidget(self.hLineBtn, 1, 0, 1, 1)
-		self.connect(self.hLineBtn, QtCore.SIGNAL("toggled(bool)"), self.moveHLine)
 
-		self.oLineBtn = QtGui.QToolButton(self)
-		self.oLineBtn.setText( "Draw oblique line" )
-		self.oLineBtn.setCheckable(True)
-		layout.addWidget(self.oLineBtn, 1, 1, 1, 1)
-		self.connect(self.oLineBtn, QtCore.SIGNAL("toggled(bool)"), self.drawOLine)
+	def enterEvent(self, event):
+		self.nav.set_cursor( NavigationToolbar.Cursor.POINTER )
 
-		#TODO add a button to save the graph as image
-		#self.nav = NavigationToolbar(self.plot, self)
-		#layout.addWidget(self.nav, 1, 2, 1, 1)
+	def leaveEvent(self, event):
+		self.nav.unset_cursor()
 
-		# store the lines for the classificator
-		self.hline = self.oline = None
 
-		# used in the mouse event handler
-		self.cidpress = self.cidmotion = self.cidrelease = None
-		self._startPoint = None
-		self._whatLine = 0
+	def createPlot(self):
+		raise ValueError("invalid or missing plot type")
 
-		self.createLines()
+	def createToolBar(self):
+		return NavigationToolbar(self.plot, self)
+
 
 	def setDirty(self, dirty):
 		self.plot.setDirty(dirty)
@@ -284,110 +286,43 @@ class CrossSectionDlg(QtGui.QDialog):
 		self.plot.setLabels(xLabel, yLabel)
 
 
-	def moveHLine(self, toggled=True):
-		if not toggled:
-			self.stopMouseCapture()
-			return
 
-		self.oLineBtn.setChecked(False)
+class HistogramPlotDlg(PlotDlg):
+	def __init__(self, *args, **kwargs):
+		self._args, self._kwargs = args, kwargs
+		PlotDlg.__init__(self, parent=kwargs.get('parent', None))
 
-		self._whatLine = 0	# hor line
-		self.startMouseCapture()
+	def createPlot(self):
+		return HistogramPlotWdg(*self._args, **self._kwargs)
 
-	def drawOLine(self, toggled=True):
-		if not toggled:
-			self.stopMouseCapture()
-			return
+class ScatterPlotDlg(PlotDlg):
+	def __init__(self, *args, **kwargs):
+		self._args, self._kwargs = args, kwargs
+		PlotDlg.__init__(self, parent=kwargs.get('parent', None))
 
-		self.hLineBtn.setChecked(False)
-
-		self._whatLine = 1	# hor line
-		self.startMouseCapture()
+	def createPlot(self):
+		return ScatterPlotWdg(*self._args, **self._kwargs)
 
 
-	def createLines(self):
-		self.hline = self.plot.axes.axhline(y=0, lw=3., color='b', alpha=0.4)
+class CrossSectionDlg(PlotDlg):
 
-		self.oline = ClippedLine2D((0,0), (0,1), lw=3., color='r', alpha=0.4)
-		self.plot.axes.add_line(self.oline)
+	def __init__(self, classificationMap, parent=None):
+		self._classificationMap = classificationMap
 
-	def startMouseCapture(self):
-		if not self.cidpress:
-			self.cidpress = self.plot.fig.canvas.mpl_connect('button_press_event', self.onMousePress)
-		if not self.cidrelease:
-			self.cidrelease = self.plot.fig.canvas.mpl_connect('button_release_event', self.onMouseRelease)
-		if not self.cidmotion:
-			self.cidmotion = self.plot.fig.canvas.mpl_connect('motion_notify_event', self.onMouseMove)
-
-	def stopMouseCapture(self):
-		if self.cidpress:
-			self.plot.fig.canvas.mpl_disconnect(self.cidpress)
-			self.cidpress = None
-		if self.cidmotion:
-			self.plot.fig.canvas.mpl_disconnect(self.cidmotion)
-			self.cidmotion = None
-		if self.cidrelease:
-			self.plot.fig.canvas.mpl_disconnect(self.cidrelease)
-			self.cidrelease = None
+		PlotDlg.__init__(self, parent=parent)
 
 
-	def onMousePress(self, event):
-		if event.inaxes != self.plot.axes: return
+	def createPlot(self):
+		return CrossSectionGraph( self._classificationMap )
 
-		self._startPoint = event.xdata, event.ydata
-
-		if self._whatLine == 0:
-			# move the horizontal line
-			self.hline.set_ydata([event.ydata, event.ydata])
-			self.plot.refresh()
-
-	def onMouseRelease(self, event):
-		self._startPoint = None
-		
-		self.stopMouseCapture()
-		self.hLineBtn.setChecked(False)
-		self.oLineBtn.setChecked(False)
-
-		self.plot.refresh()
-
-
-	def onMouseMove(self, event):
-		if not self._startPoint: return
-		if event.inaxes != self.plot.axes: return
-
-		# create or update the line
-		if self._whatLine == 0:
-			# move the horizontal line
-			self.hline.set_ydata([event.ydata, event.ydata])
-
-		else:
-			# oblique line
-			x0, y0 = self._startPoint
-
-			xlim = self.plot.axes.get_xlim()
-			ylim = self.plot.axes.get_ylim()
-
-			# adjust line angle, the line is valid only from UL to BR
-			dx = (event.xdata - x0)
-			dy = (event.ydata - y0)
-
-			if (dx >= 0 and dy <= 0) or (dx <= 0 and dy >= 0):
-				x1, y1 = event.xdata, event.ydata
-			elif abs(dx * (ylim[1]-ylim[0])) <= abs(dy * (xlim[1]-xlim[0])):
-				x1, y1 = x0, event.ydata
-			else:
-				x1, y1 = event.xdata, y0
-
-			self.oline.set_data( (x0,x1), (y0,y1) )
-
-		# refresh
-		self.plot.refresh()
+	def createToolBar(self):
+		return NavigationToolbarCrossSection(self.plot, self)
 
 
 	def classify(self):
-		hy = self.hline.get_ydata()[0]
+		hy = self.plot.hline.get_ydata()[0]
 
-		(ox0,ox1),(oy0,oy1) = self.oline.get_data()
+		(ox0,ox1),(oy0,oy1) = self.plot.oline.get_data()
 		if ox1 == ox0:
 			ocoeff = None	# the oblique line is a vertical line...
 		else:
@@ -419,6 +354,11 @@ class CrossSectionGraph(PlotWdg):
 	def __init__(self, classificationMap, *args, **kwargs):
 		PlotWdg.__init__(self,	*args, **kwargs)
 		self._classificationMap = classificationMap
+
+		self.hline = self.axes.axhline(y=0, lw=3., color='b', alpha=0.4)
+
+		self.oline = ClippedLine2D((0,0), (0,1), lw=3., color='r', alpha=0.4)
+		self.axes.add_line(self.oline)
 
 	def _plot(self):
 		# convert values, then create the plot
@@ -490,6 +430,219 @@ class ClippedLine2D(Line2D):
 			self.set_data(x, y)
 
 		Line2D.draw(self, renderer)
+
+
+
+class NavigationToolbar(NavigationToolbar2QTAgg):
+
+	def __init__(self, *args, **kwargs):
+		NavigationToolbar2QTAgg.__init__(self, *args, **kwargs)
+
+		self.init_buttons()
+		self.panAction.setCheckable(True)
+		self.zoomAction.setCheckable(True)
+
+		# remove the subplots action
+		self.removeAction( self.subplotsAction )
+
+	class Cursor:
+		# cursors defined in backend_bases (from matplotlib source code)
+		HAND, POINTER, SELECT_REGION, MOVE = range(4)
+
+		@classmethod
+		def toQCursor(self, cursor):
+			if cursor == self.MOVE:
+				n = QtCore.Qt.SizeAllCursor
+			elif cursor == self.HAND:
+				n = QtCore.Qt.PointingHandCursor
+			elif cursor == self.SELECT_REGION:
+				n = QtCore.Qt.CrossCursor
+			else:#if cursor == self.POINTER:
+				n = QtCore.Qt.ArrowCursor
+			return QtGui.QCursor( n )
+
+	def set_cursor(self, cursor):
+		if cursor != self._lastCursor:
+			self.unset_cursor()
+			QtGui.QApplication.setOverrideCursor( NavigationToolbar.Cursor.toQCursor(cursor) )
+			self._lastCursor = cursor
+
+	def unset_cursor(self):
+		if self._lastCursor:
+			QtGui.QApplication.restoreOverrideCursor()
+			self._lastCursor = None
+
+	def init_buttons(self):
+		self.homeAction = self.panAction = self.zoomAction = self.subplotsAction = None
+
+		for a in self.actions():
+			if a.text() == 'Home':
+				self.homeAction = a
+			elif a.text() == 'Pan':
+				self.panAction = a
+			elif a.text() == 'Zoom':
+				self.zoomAction = a
+			elif a.text() == 'Subplots':
+				self.subplotsAction = a
+
+	def resetActionsState(self, skip=None):
+		# reset the buttons state
+		for a in self.actions():
+			if skip and a == skip:
+				continue
+			a.setChecked( False )
+
+	def pan( self, *args ):
+		self.resetActionsState( self.panAction )
+		NavigationToolbar2QTAgg.pan( self, *args )
+
+	def zoom( self, *args ):
+		self.resetActionsState( self.zoomAction )
+		NavigationToolbar2QTAgg.zoom( self, *args )
+
+
+import resources_rc
+
+class NavigationToolbarCrossSection(NavigationToolbar):
+	def __init__(self, canvas, parent=None):
+		NavigationToolbar.__init__(self, canvas, parent)
+
+		# add toolbutton to the draw horizontal line
+		self.hLineAction = QtGui.QAction( QtGui.QIcon(":/gem-mt_plugin/tools/hline"), "Draw horizontal line", self )
+		self.hLineAction.setToolTip( "Draw horizontal line" )
+		self.hLineAction.setCheckable(True)
+		self.insertAction(self.homeAction, self.hLineAction)
+		self.connect(self.hLineAction, QtCore.SIGNAL("triggered()"), self.drawHLine)
+
+		# add toolbutton to the draw oblique line
+		self.oLineAction = QtGui.QAction( QtGui.QIcon(":/gem-mt_plugin/tools/oline"), "Draw oblique line", self )
+		self.oLineAction.setToolTip( "Draw oblique line" )
+		self.oLineAction.setCheckable(True)
+		self.insertAction(self.homeAction, self.oLineAction)
+		self.connect(self.oLineAction, QtCore.SIGNAL("triggered()"), self.drawOLine)
+
+		self.insertSeparator(self.homeAction)
+
+		# used in the mouse event handler
+		self._startPoint = None
+		self._idMotion = None
+
+
+	def configure_subplots(self, *args):
+		pass	# do nothing
+
+	def drawHLine(self):
+		if not self.hLineAction.isChecked():
+			self.stopMouseCapture()
+			self._active = None
+			self.mode = ''
+			self.set_message(self.mode)
+			return
+
+		self.resetActionsState(self.hLineAction)
+		self.startMouseCapture()
+
+		self._active = 'HLINE'
+		self.mode = 'draw horizontal line'
+		self.set_message(self.mode)
+
+	def drawOLine(self):
+		if not self.oLineAction.isChecked():
+			self.stopMouseCapture()
+			self._active = None
+			self.mode = ''
+			self.set_message(self.mode)
+			return
+
+		self.resetActionsState(self.oLineAction)
+		self.startMouseCapture()
+
+		self._active = 'OLINE'
+		self.mode = 'draw oblique line'
+		self.set_message(self.mode)
+
+	def startMouseCapture(self):
+		# remove old handlers
+		self.stopMouseCapture()
+
+		# set new handlers
+		if not self._idPress:
+			self._idPress = self.canvas.mpl_connect('button_press_event', self.onMousePress)
+		if not self._idRelease:
+			self._idRelease = self.canvas.mpl_connect('button_release_event', self.onMouseRelease)
+		if not self._idMotion:
+			self._idMotion = self.canvas.mpl_connect('motion_notify_event', self.onMouseMove)
+
+	def stopMouseCapture(self):
+		if self._idPress:
+			self.canvas.mpl_disconnect(self._idPress)
+			self._idPress = None
+		if self._idRelease:
+			self.canvas.mpl_disconnect(self._idRelease)
+			self._idRelease = None
+		if self._idMotion:
+			self.canvas.mpl_disconnect(self._idMotion)
+			self._idMotion = None
+
+
+	def onMousePress(self, event):
+		if event.inaxes != self.canvas.axes: return
+
+		self._startPoint = event.xdata, event.ydata
+
+		if self._active == 'HLINE':
+			# move the horizontal line
+			self.canvas.hline.set_ydata([event.ydata, event.ydata])
+			self.canvas.draw()
+
+	def onMouseRelease(self, event):
+		self._startPoint = None
+		
+		self.stopMouseCapture()
+		self.resetActionsState()
+
+		self._active = None
+		self.mode = ''
+		self.set_message(self.mode)
+
+		self.canvas.draw()
+
+
+	def onMouseMove(self, event):
+		# override the cursor
+		if event.inaxes and self._active in ['HLINE', 'OLINE']:
+			self.set_cursor( NavigationToolbar.Cursor.SELECT_REGION )
+
+		if not self._startPoint: return
+		if event.inaxes != self.canvas.axes: return
+
+		# create or update the line
+		if self._active == 'HLINE':
+			# move the horizontal line
+			self.canvas.hline.set_ydata([event.ydata, event.ydata])
+
+		else:
+			# oblique line
+			x0, y0 = self._startPoint
+
+			xlim = self.canvas.axes.get_xlim()
+			ylim = self.canvas.axes.get_ylim()
+
+			# adjust line angle, the line is valid only from UL to BR
+			dx = (event.xdata - x0)
+			dy = (event.ydata - y0)
+
+			if (dx >= 0 and dy <= 0) or (dx <= 0 and dy >= 0):
+				x1, y1 = event.xdata, event.ydata
+			elif abs(dx * (ylim[1]-ylim[0])) <= abs(dy * (xlim[1]-xlim[0])):
+				x1, y1 = x0, event.ydata
+			else:
+				x1, y1 = event.xdata, y0
+
+			self.canvas.oline.set_data( (x0,x1), (y0,y1) )
+
+		# re-draw
+		self.canvas.draw()
 
 
 if __name__ == "__main__":
