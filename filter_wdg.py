@@ -34,12 +34,9 @@ class FilterDock(QDockWidget):
 		self.setupUi()
 
 	def closeEvent(self, event):
+		self.mainWidget.onClosing()
 		self.emit( SIGNAL( "closed" ), self )
 		return QDockWidget.closeEvent(self, event)
-
-	def deleteLater(self):
-		self.mainWidget.deleteLater()
-		return QDockWidget.deleteLater(self)
 
 	def setupUi(self):
 		self.setWindowTitle( "Filter/Plot panel" )
@@ -142,13 +139,6 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.connect(self.plotTypeCombo, SIGNAL("currentIndexChanged(int)"), self.updateAxesCombos)
 
 
-	def _filterForKey(self, key):
-		if key == 'magnitude': return self.magnitudeRangeFilter
-		if key == 'depth': return self.depthRangeFilter
-		if key == 'date': return self.dateRangeFilter
-		return None
-
-
 	def storePrevMapTool(self):
 		prevMapTool = self.canvas.mapTool()
 		if prevMapTool not in (self.polygonDrawer,):
@@ -160,26 +150,16 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 			self.canvas.setMapTool(self._prevMapTool)
 
 
-	def _hasPlotYField(self, plotType):
-		return plotType not in (self.PLOT_HIST, self.PLOT_HIST_LOG)
-
-	def _getPlotType(self):
-		return self.plotTypeCombo.itemData( self.plotTypeCombo.currentIndex() )
-
-	def updateAxesCombos(self):
-		self.yAxisCombo.setEnabled( self._hasPlotYField( self._getPlotType() ) )
-
-
 	def showEvent(self, event):
 		self.showRubberBands(True)
 		QWidget.showEvent(self, event)
 
-	def hideEvent(self, event):
+	def onClosing(self):
 		self.showRubberBands(False)
 		self.restorePrevMapTool()
-		QWidget.hideEvent(self, event)
 
-	def deleteLater(self):
+
+	def delete(self):
 		self.clearPolygon()
 
 		# restore the previous maptool
@@ -189,7 +169,35 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.polygonDrawer.deleteLater()
 		self.polygonDrawer = None
 
-		return QWidget.deleteLater(self)
+		# unset delete function
+		self.delete = lambda: None
+
+	def __del__(self):
+		self.delete()
+
+	def deleteLater(self, *args):
+		self.delete()
+		super(self.__class__, self).deleteLater(*args)
+		
+	def destroy(self, *args):
+		self.delete()
+		super(self.__class__, self).destroy(*args)
+
+
+	def _filterForKey(self, key):
+		if key == 'magnitude': return self.magnitudeRangeFilter
+		if key == 'depth': return self.depthRangeFilter
+		if key == 'date': return self.dateRangeFilter
+		return None
+
+	def _hasPlotYField(self, plotType):
+		return plotType not in (self.PLOT_HIST, self.PLOT_HIST_LOG)
+
+	def _getPlotType(self):
+		return self.plotTypeCombo.itemData( self.plotTypeCombo.currentIndex() )
+
+	def updateAxesCombos(self):
+		self.yAxisCombo.setEnabled( self._hasPlotYField( self._getPlotType() ) )
 
 
 	def showRubberBands(self, show=True):
@@ -213,18 +221,20 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 	def polygonCreated(self, polygon):
 		# restore the previous maptool
-		self.polygonDrawer.stopCapture()
 		self.restorePrevMapTool()
 
 	def createPlot(self):
 		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
 		try:
-			self._createPlot()
+			dlg = self._createPlotDlg()
 		finally:
 			QApplication.restoreOverrideCursor()
 
+		dlg.show()
+		dlg.exec_()
 
-	def _createPlot(self):
+
+	def _createPlotDlg(self):
 		plotType = self._getPlotType()
 		hasYField = self._hasPlotYField( plotType )
 
@@ -259,8 +269,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 
 		# the following lists will contain x and y values
-		x = []
-		y = []
+		x, y = ([], [])
 
 		# fetch and loop through the features
 		pr.select( indexes, extent, True )
@@ -296,15 +305,16 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 			QMessageBox.information(self, "Plot", "No features in the result")
 			return
 
-		from plot_wdg import *
+		from plot_wdg import HistogramPlotDlg, ScatterPlotDlg
 		if plotType == self.PLOT_HIST:
-			dlg = HistogramPlotWdg([x], [self.xAxisCombo.currentText(), "Frequency"], self.titleEdit.text())
+			dlg = HistogramPlotDlg([x], [self.xAxisCombo.currentText(), "Frequency"], self.titleEdit.text())
 		elif plotType == self.PLOT_HIST_LOG:
-			dlg = HistogramPlotWdg([x], [self.xAxisCombo.currentText(), "log10(Frequency)"], self.titleEdit.text(), {'yscale':'log'})
+			dlg = HistogramPlotDlg([x], [self.xAxisCombo.currentText(), "log10(Frequency)"], self.titleEdit.text(), {'yscale':'log'})
 		elif plotType == self.PLOT_SCATTER:
-			dlg = ScatterPlotWdg([x, y], [self.xAxisCombo.currentText(), self.yAxisCombo.currentText()], self.titleEdit.text())
+			dlg = ScatterPlotDlg([x, y], [self.xAxisCombo.currentText(), self.yAxisCombo.currentText()], self.titleEdit.text())
 		else:
 			return
 
-		dlg.show()
+		#dlg.setParent(self.iface.mainWindow())
+		return dlg
 

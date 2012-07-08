@@ -34,12 +34,9 @@ class ClassificationDock(QDockWidget):
 		self.setupUi()
 
 	def closeEvent(self, event):
+		self.mainWidget.onClosing()
 		self.emit( SIGNAL( "closed" ), self )
 		return QDockWidget.closeEvent(self, event)
-
-	def deleteLater(self):
-		self.mainWidget.deleteLater()
-		return QDockWidget.deleteLater(self)
 
 	def setupUi(self):
 		self.setWindowTitle( "Classification panel" )
@@ -87,10 +84,14 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self.connect(self.crossSectionBtn, SIGNAL("clicked()"), self.openCrossSection)
 		self.connect(self.displayClassifiedDataBtn, SIGNAL("clicked()"), self.loadClassifiedData)
 
+		# disable buttons
+		self.delBufferBtn.setEnabled(False)
+		self.crossSectionBtn.setEnabled(False)
+
 
 	def storePrevMapTool(self):
 		prevMapTool = self.canvas.mapTool()
-		if prevMapTool not in (self.areaDrawer, self.segmentDrawer):
+		if prevMapTool and prevMapTool not in (self.areaDrawer, self.segmentDrawer):
 			self._prevMapTool = prevMapTool
 
 	def restorePrevMapTool(self):
@@ -104,13 +105,12 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self.showRubberBands(True)
 		QWidget.showEvent(self, event)
 
-	def hideEvent(self, event):
+	def onClosing(self):
 		self.showRubberBands(False)
 		self.restorePrevMapTool()
-		QWidget.hideEvent(self, event)
 
 
-	def deleteLater(self):
+	def delete(self):
 		# clear rubberbands
 		self.clearArea()
 		self.clearBuffers()
@@ -124,7 +124,19 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self.segmentDrawer.deleteLater()
 		self.segmentDrawer = None
 
-		return QWidget.deleteLater(self)
+		# unset delete function
+		self.delete = lambda: None
+
+	def __del__(self):
+		self.delete()
+
+	def deleteLater(self, *args):
+		self.delete()
+		super(self.__class__, self).deleteLater(*args)
+		
+	def destroy(self, *args):
+		self.delete()
+		super(self.__class__, self).destroy(*args)
 
 
 	def showRubberBands(self, show=True):
@@ -285,9 +297,12 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 
 	def buffersSelectionChanged(self, current, previous):
-		""" highlight the rubberbands for the selected classification buffer """
-		model = self.buffersTable.model()
+		""" update buttons, then highlight the rubberbands for the 
+			selected classification buffer """
+		self.delBufferBtn.setEnabled(current.isValid())
+		self.crossSectionBtn.setEnabled(current.isValid())
 
+		model = self.buffersTable.model()
 		for index in (previous, current):
 			if not index.isValid():
 				continue
@@ -302,10 +317,11 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			self.redrawBufferRubberBand(bufferRb, segment, buffersize)
 			self.redrawMidlineRubberBand(midlineRb, segment)
 
+
 	def openCrossSection(self):
 		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
 		try:
-			self._openCrossSection()
+			dlg = self._openCrossSection()
 		finally:
 			QApplication.restoreOverrideCursor()
 
@@ -491,12 +507,12 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			outvl.dataProvider().addFeatures( [ f ] )
 
 
-		# update layer's extent when new features have been added
-		# because change of extent in provider is not propagated to the layer
-		outvl.updateExtents()
-
 		# add all the layers to the map
 		for name, vl in outLayers.iteritems():
+			# update layer's extent when new features have been added
+			# because change of extent in provider is not propagated to the layer
+			vl.updateExtents()
+
 			if hasattr(QgsMapLayerRegistry.instance(), 'addMapLayers'):	# available from QGis >= 1.8
 				QgsMapLayerRegistry.instance().addMapLayers( [ vl ] )
 			else:
