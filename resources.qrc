@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/gem-mt_plugin">
+        <file alias="tools/hline">icons/hline.png</file>
+        <file alias="tools/oline">icons/oline.png</file>
+    </qresource>
+</RCC>
