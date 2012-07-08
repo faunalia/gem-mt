@@ -28,9 +28,6 @@ from PyQt4.QtGui import *
 
 from qgis.core import *
 import qgis.gui
-import qgis.utils
-
-
 
 class Drawer(qgis.gui.QgsMapToolEmitPoint):
 	def __init__(self, canvas, isPolygon=False, props=None):
@@ -51,12 +48,26 @@ class Drawer(qgis.gui.QgsMapToolEmitPoint):
 
 		QObject.connect(self.canvas, SIGNAL( "mapToolSet(QgsMapTool *)" ), self._toolChanged)
 
-	def __del__(self):
+
+	def delete(self):
 		QObject.disconnect(self.canvas, SIGNAL( "mapToolSet(QgsMapTool *)" ), self._toolChanged)
 		self.reset()
 		del self.rubberBand
 		del self.snapper
-		self.deleteLater()
+
+		# unset delete function
+		self.delete = lambda: None
+
+	def __del__(self):
+		self.delete()
+
+	def deleteLater(self, *args):
+		self.delete()
+		super(self.__class__, self).deleteLater(*args)
+		
+	def destroy(self, *args):
+		self.delete()
+		super(self.__class__, self).destroy(*args)
 
 
 	def setAction(self, action):
@@ -86,9 +97,12 @@ class Drawer(qgis.gui.QgsMapToolEmitPoint):
 
 	def canvasPressEvent(self, e):
 		if e.button() == Qt.RightButton:
-			if self.isEmittingPoints:
-				self.isEmittingPoints = False
+			prevIsEmittingPoints = self.isEmittingPoints
+			self.isEmittingPoints = False
+			if not self.isEmittingPoints:
 				self.onEnd( self.geometry() )
+			else:
+				self.onEnd( None )
 			return
 
 		if e.button() != Qt.LeftButton:
@@ -143,10 +157,7 @@ class Drawer(qgis.gui.QgsMapToolEmitPoint):
 		return geom
 
 	def onEnd(self, geometry):
-		self.stopCapture()
-		if geometry == None:
-			self.reset()
-			return
+		#self.stopCapture()
 		self.emit( SIGNAL( "geometryEmitted" ), geometry )
 
 	def deactivate(self):
@@ -171,77 +182,4 @@ class SegmentDrawer(Drawer):
 		props = props if isinstance(props, dict) else {}
 		props['mode'] = 'segment'
 		Drawer.__init__(self, canvas, False, props)
-
-
-class FeatureFinder(qgis.gui.QgsMapToolEmitPoint):
-
-	def __init__(self, canvas=None):
-		qgis.gui.QgsMapToolEmitPoint.__init__(self, canvas=canvas)
-		QObject.connect(self, SIGNAL( "canvasClicked(const QgsPoint &, Qt::MouseButton)" ), self.onEnd)
-
-	def onEnd(self, point, button):
-		self.stopCapture()
-		self.emit( SIGNAL("pointEmitted"), point, button )
-
-	@classmethod
-	def findAtPoint(self, layer, point, onlyTheClosestOne=True, onlyIds=False):
-		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
-
-		# recupera il valore del raggio di ricerca
-		settings = QSettings()
-		(radius, ok) = settings.value( "/Map/identifyRadius", QGis.DEFAULT_IDENTIFY_RADIUS ).toDouble()
-		if not ok or radius <= 0:
-			radius = QGis.DEFAULT_IDENTIFY_RADIUS
-		radius = MapTool.canvas.extent().width() * radius/100
-
-		# crea il rettangolo da usare per la ricerca
-		rect = QgsRectangle()
-		rect.setXMinimum(point.x() - radius)
-		rect.setXMaximum(point.x() + radius)
-		rect.setYMinimum(point.y() - radius)
-		rect.setYMaximum(point.y() + radius)
-		rect = MapTool.canvas.mapRenderer().mapToLayerCoordinates(layer, rect)
-
-		# recupera le feature che intersecano il rettangolo
-		layer.select([], rect, True, True)
-
-		ret = None
-
-		if onlyTheClosestOne:
-			minDist = -1
-			featureId = None
-			rect = QgsGeometry.fromRect(rect)
-			count = 0
-
-			f = QgsFeature()
-			while layer.nextFeature(f):
-				if onlyTheClosestOne:
-					geom = f.geometry()
-					distance = geom.distance(rect)
-					if minDist < 0 or distance < minDist:
-						minDist = distance
-						featureId = f.id()
-
-			if onlyIds:
-				ret = featureId
-			elif featureId != None:
-				layer.featureAtId(featureId, f, True, True)
-				ret = f
-
-		else:
-			IDs = []
-			f = QgsFeature()
-			while layer.nextFeature(f):
-				IDs.append( f.id() )
-
-			if onlyIds:
-				ret = IDs
-			else:
-				ret = []
-				for featureId in IDs:
-					layer.featureAtId(featureId, f, True, True)
-					ret.append( f )
-
-		QApplication.restoreOverrideCursor()
-		return ret
 
