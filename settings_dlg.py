@@ -76,16 +76,22 @@ class Settings:
 
 	@staticmethod
 	def fieldName2key( fieldName ):
-		if fieldName.startsWith( Settings.longitudeField(), Qt.CaseInsensitive ):
+		if not Settings.longitudeField().isEmpty() and \
+				fieldName.startsWith( Settings.longitudeField(), Qt.CaseInsensitive ):
 			return 'longitude'
-		elif fieldName.startsWith( Settings.latitudeField(), Qt.CaseInsensitive ):
+		if not Settings.latitudeField().isEmpty() and \
+				fieldName.startsWith( Settings.latitudeField(), Qt.CaseInsensitive ):
 			return 'latitude'
-		elif fieldName.startsWith( Settings.magnitudeField(), Qt.CaseInsensitive ):
+		if not Settings.magnitudeField().isEmpty() and \
+				fieldName.startsWith( Settings.magnitudeField(), Qt.CaseInsensitive ):
 			return 'magnitude'
-		elif fieldName.startsWith( Settings.depthField(), Qt.CaseInsensitive ):
+		if not Settings.depthField().isEmpty() and \
+				fieldName.startsWith( Settings.depthField(), Qt.CaseInsensitive ):
 			return 'depth'
-		elif fieldName.startsWith( Settings.dateField(), Qt.CaseInsensitive ):
+		if not Settings.dateField().isEmpty() and \
+				fieldName.startsWith( Settings.dateField(), Qt.CaseInsensitive ):
 			return 'date'
+		return None
 
 
 from ui.settingsDlg_ui import Ui_Dialog
