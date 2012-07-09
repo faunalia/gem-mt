@@ -104,7 +104,9 @@ class RangeSlider(QtGui.QSlider):
                 opt_rect_setMinPos = opt.rect.setY
                 opt_rect_setLength = opt.rect.setHeight
 
-            inverted_value = self.maximum() - value
+            #print "min/max", self.minimum(), self.maximum()
+            #print "slider", slider_max, slider_min, handle_length
+            #print "value", value
 
             opt.subControls = QtGui.QStyle.SC_SliderGroove | QtGui.QStyle.SC_SliderHandle
 
@@ -116,56 +118,58 @@ class RangeSlider(QtGui.QSlider):
                 else:
                     opt.upsideDown = self.invertedAppearance()
 
-                pos = style.sliderPositionFromValue(self.minimum(), self.maximum(),
-                                             inverted_value, slider_max - slider_min,
-                                             opt.upsideDown)
-
-
-                new_val = style.sliderValueFromPosition(self.minimum(), self.maximum(),
-                                             pos, slider_max - slider_min - 2,
-                                             opt.upsideDown)
-
-                opt.sliderValue = opt.sliderPosition = new_val
-
                 if self.orientation() == QtCore.Qt.Horizontal:
+                    opt.sliderValue = value - self.minimum()
+                    opt.sliderPosition = self.minimum() + (self.maximum() - value)
+
+                    #print "old", opt.rect.x(), opt.rect.width()
                     opt_rect_setMinPos(slider_min)
                     opt_rect_setLength(slider_length)
+                    #print "new", opt.rect.x(), opt.rect.width()
+
                 else:
-                    opt_rect_setMinPos(slider_min + 2)
-                    opt_rect_setLength(slider_length - 2)
+                    #print "old", opt.rect.y(), opt.rect.height()
+                    opt_rect_setMinPos(slider_min)
+                    opt_rect_setLength(slider_length)
+                    #print "new", opt.rect.y(), opt.rect.height()
+
+                #print "opt", opt.sliderValue, opt.sliderPosition, opt.upsideDown
 
             else:
-                opt.sliderValue = opt.sliderPosition = 0
-
                 # do not highlight the second part when has focus to avoid 
                 # drawing of partially overlapped semi-transparent backgrounds
                 opt.state &= ~QtGui.QStyle.State_HasFocus
 
+                opt.sliderValue = 0
+                opt.sliderPosition = self.minimum()
+
                 if self.orientation() == QtCore.Qt.Horizontal:
                     opt.upsideDown = self.invertedAppearance()
 
-                    pos = style.sliderPositionFromValue(self.minimum(), self.maximum(),
-                                             inverted_value, slider_max - slider_min - 4,
+                    pos = style.sliderPositionFromValue(0, self.maximum()-self.minimum(),
+                                             value-self.minimum(), slider_max - slider_min - 4,
                                              opt.upsideDown)
 
-                    #print "const", self.minimum(), self.maximum(), handle_length
-                    #print "vars", inverted_value, pos, slider_max, slider_min
+                    #print "pos", pos
                     #print "old", opt.rect.x(), opt.rect.width()
-                    opt_rect_setMinPos(slider_max - pos - 1)
-                    opt_rect_setLength(pos + handle_length + 3)
+                    opt_rect_setMinPos(pos + 3)
+                    opt_rect_setLength(slider_max - pos + handle_length - 3)
                     #print "new", opt.rect.x(), opt.rect.width()
+
                 else:
                     opt.upsideDown = not self.invertedAppearance()
 
-                    pos = style.sliderPositionFromValue(self.minimum(), self.maximum(),
-                                             inverted_value, slider_min + slider_length - handle_length - 8,
+                    pos = style.sliderPositionFromValue(0, self.maximum()-self.minimum(),
+                                             self.maximum()-value, slider_max - slider_min - 4,
                                              opt.upsideDown)
 
-                    #print "vars", inverted_value, pos, slider_max, slider_min, handle_length
+                    #print "pos", pos
                     #print "old", opt.rect.y(), opt.rect.height()
-                    opt_rect_setMinPos(slider_min)
-                    opt_rect_setLength(slider_min + slider_length - pos - 4)
+                    opt_rect_setMinPos(slider_min-1)
+                    opt_rect_setLength(slider_min + slider_length - pos - 2)
                     #print "new", opt.rect.y(), opt.rect.height()
+
+                #print "opt", opt.sliderValue, opt.sliderPosition, opt.upsideDown
 
             if self.tickPosition() != self.NoTicks:
                 opt.subControls |= QtGui.QStyle.SC_SliderTickmarks
@@ -302,15 +306,18 @@ if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
 
     slider = RangeSlider()#QtGui.QSlider()
-    slider.setMinimum(0)
-    slider.setMaximum(10000)
-    slider.setLowValue(0)
-    slider.setHighValue(10000)
-    #slider.setOrientation( QtCore.Qt.Horizontal )
+    slider.setMinimum(50)
+    slider.setMaximum(100)
+    slider.setLowValue(50)
+    slider.setHighValue(100)
+    slider.setOrientation( QtCore.Qt.Horizontal )
 
-    def echo(value):
-        print value
-    QtCore.QObject.connect(slider, QtCore.SIGNAL('sliderMoved(int)'), echo)
+	# TODO: fix handles' positioning while appearance is inverted
+    #slider.setInvertedAppearance( True )
+
+    #def echo(value):
+    #    print value
+    #QtCore.QObject.connect(slider, QtCore.SIGNAL('sliderMoved(int)'), echo)
 
     slider.show()
     sys.exit(app.exec_())
