@@ -22,23 +22,15 @@ email				: brush.tyler@gmail.com
 # Python Qt4 bindings for GUI objects
 from PyQt4 import QtGui, QtCore
 
-# Numpy functions for image creation
-import numpy as np
-
 # Matplotlib Figure object
 from matplotlib.figure import Figure
 
-import itertools
 from matplotlib.dates import date2num
 from datetime import datetime
-from pylab import *
 
 # import the Qt4Agg FigureCanvas object, that binds Figure to
 # Qt4Agg backend. It also inherits from QWidget
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
-
-# import the NavigationToolbar Qt4Agg widget
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg
 
 class PlotWdg(FigureCanvasQTAgg):
 	"""Class to represent the FigureCanvas widget"""
@@ -85,11 +77,11 @@ class PlotWdg(FigureCanvasQTAgg):
 
 	def deleteLater(self, *args):
 		self.delete()
-		super(self.__class__, self).deleteLater(*args)
+		return FigureCanvasQTAgg.deleteLater(self, *args)
 		
 	def destroy(self, *args):
 		self.delete()
-		super(self.__class__, self).destroy(*args)
+		return FigureCanvasQTAgg.destroy(self, *args)
 
 
 	def setDirty(self, val):
@@ -108,7 +100,7 @@ class PlotWdg(FigureCanvasQTAgg):
 			# re-draw
 			self.draw()
 
-		return super(PlotWdg, self).showEvent(event)
+		return FigureCanvasQTAgg.showEvent(self, event)
 
 	def setData(self, x, y, info=None):
 		self.x, self.y = x or [], y or []
@@ -390,48 +382,8 @@ class CrossSectionGraph(PlotWdg):
 			self.collections.append( unclassifiedItems )
 
 
-
-class ClippedLine2D(Line2D):
-	"""
-	Clip the xlimits to the axes view limits
-	"""
-
-	def __init__(self, *args, **kwargs):
-		Line2D.__init__(self, *args, **kwargs)
-
-	def draw(self, renderer):
-		x, y = self.get_data()
-
-		if len(x) == 2 or len(y) == 2:
-			xlim = self.axes.get_xlim()
-			ylim = self.axes.get_ylim()
-
-			x0, y0 = x[0], y[0]
-			x1, y1 = x[1], y[1]
-
-			if x0 == x1:	# vertical
-				x, y = (x0, x0), ylim
-			elif y0 == y1:
-				x, y = xlim, (y0, y0)
-			else:
-				coeff = float(y1 - y0) / (x1 - x0)
-				minx = (ylim[0] - y0) / coeff + x0
-				maxx = (ylim[1] - y0) / coeff + x0
-				miny = coeff * (xlim[0] - x0) + y0
-				maxy = coeff * (xlim[1] - x0) + y0
-
-				# swap values if in the wrong position (coeff < 0)
-				if minx > maxx : minx, maxx = maxx, minx
-				if miny > maxy : miny, maxy = maxy, miny
-
-				x = min(maxx, xlim[1]), max(minx, xlim[0])
-				y = max(miny, ylim[0]), min(maxy, ylim[1])
-
-			self.set_data(x, y)
-
-		Line2D.draw(self, renderer)
-
-
+# import the NavigationToolbar Qt4Agg widget
+from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg
 
 class NavigationToolbar(NavigationToolbar2QTAgg):
 
@@ -643,6 +595,50 @@ class NavigationToolbarCrossSection(NavigationToolbar):
 
 		# re-draw
 		self.canvas.draw()
+
+
+
+from pylab import Line2D
+
+class ClippedLine2D(Line2D):
+	"""
+	Clip the xlimits to the axes view limits
+	"""
+
+	def __init__(self, *args, **kwargs):
+		Line2D.__init__(self, *args, **kwargs)
+
+	def draw(self, renderer):
+		x, y = self.get_data()
+
+		if len(x) == 2 or len(y) == 2:
+			xlim = self.axes.get_xlim()
+			ylim = self.axes.get_ylim()
+
+			x0, y0 = x[0], y[0]
+			x1, y1 = x[1], y[1]
+
+			if x0 == x1:	# vertical
+				x, y = (x0, x0), ylim
+			elif y0 == y1:
+				x, y = xlim, (y0, y0)
+			else:
+				coeff = float(y1 - y0) / (x1 - x0)
+				minx = (ylim[0] - y0) / coeff + x0
+				maxx = (ylim[1] - y0) / coeff + x0
+				miny = coeff * (xlim[0] - x0) + y0
+				maxy = coeff * (xlim[1] - x0) + y0
+
+				# swap values if in the wrong position (coeff < 0)
+				if minx > maxx : minx, maxx = maxx, minx
+				if miny > maxy : miny, maxy = maxy, miny
+
+				x = min(maxx, xlim[1]), max(minx, xlim[0])
+				y = max(miny, ylim[0]), min(maxy, ylim[1])
+
+			self.set_data(x, y)
+
+		Line2D.draw(self, renderer)
 
 
 if __name__ == "__main__":
