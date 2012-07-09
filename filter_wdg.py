@@ -33,6 +33,10 @@ class FilterDock(QDockWidget):
 		self.mainWidget = FilterWdg(iface, vl, self)
 		self.setupUi()
 
+	def deleteLater(self, *args):
+		self.mainWidget.deleteLater()
+		return QDockWidget.deleteLater(self, *args)
+
 	def closeEvent(self, event):
 		self.mainWidget.onClosing()
 		self.emit( SIGNAL( "closed" ), self )
@@ -67,14 +71,14 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.depthRangeFilter.setEnabled(False)
 		self.dateRangeFilter.setEnabled(False)
 
-		self.magnitudeRangeFilter.setDecimals( 1 )
 		self.magnitudeRangeFilter.setOrientation( Qt.Horizontal )
+		self.depthRangeFilter.setOrientation( Qt.Horizontal )
+		self.dateRangeFilter.setOrientation( Qt.Horizontal )
+
+		self.magnitudeRangeFilter.setDecimals( 1 )
 		self.magnitudeRangeFilter.setMinimum( 0 )
 		self.magnitudeRangeFilter.setMaximum( 10 )
 		self.magnitudeRangeFilter.setHighValue( 10 )
-
-		self.depthRangeFilter.setOrientation( Qt.Horizontal )
-		self.dateRangeFilter.setOrientation( Qt.Horizontal )
 
 		# take min/max values index from the data provider
 		pr = self.vl.dataProvider()
@@ -86,34 +90,36 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 			if not filterWdg:
 				continue
 
-			filterWdg.setEnabled(True)
-
-			minVal = self.vl.dataProvider().minimumValue( index )
-			maxVal = self.vl.dataProvider().maximumValue( index )
+			minPrVal = self.vl.dataProvider().minimumValue( index )
+			maxPrVal = self.vl.dataProvider().maximumValue( index )
 
 			if filterWdg == self.dateRangeFilter:
-				if minVal.isValid():
-					self.dateRangeFilter.setMinimum( minVal.toDate() )
-					self.dateRangeFilter.setLowValue( minVal.toDate() )
-				if maxVal.isValid():
-					self.dateRangeFilter.setMaximum( maxVal.toDate() )
-					self.dateRangeFilter.setHighValue( maxVal.toDate() )
+				minVal = minPrVal.toDate()
+				minOk = minVal.isValid()
+
+				maxVal = maxPrVal.toDate()
+				maxOk = maxVal.isValid()
 
 			elif filterWdg == self.depthRangeFilter:
-				if minVal.isValid():
-					self.depthRangeFilter.setMinimum( minVal.toInt()[0] )
-					self.depthRangeFilter.setLowValue( minVal.toInt()[0] )
-				if maxVal.isValid():
-					self.depthRangeFilter.setMaximum( maxVal.toInt()[0] )
-					self.depthRangeFilter.setHighValue( maxVal.toInt()[0] )
+				minVal, minOk = minPrVal.toInt()
+				maxVal, maxOk = maxPrVal.toInt()
 
-			elif False:# filterWdg == self.magnitudeRangeFilter:
-				if minVal.isValid():
-					self.magnitudeRangeFilter.setMinimum( minVal.toDouble()[0] )
-					self.magnitudeRangeFilter.setLowValue( minVal.toDouble()[0] )
-				if maxVal.isValid():
-					self.magnitudeRangeFilter.setMaximum( maxVal.toDouble()[0] )
-					self.magnitudeRangeFilter.setHighValue( maxVal.toDouble()[0] )
+			elif filterWdg == self.magnitudeRangeFilter:
+				minVal, minOk = minPrVal.toDouble()
+				maxVal, maxOk = maxPrVal.toDouble()
+
+			else:
+				continue
+
+			if minPrVal.isValid() and minOk:
+				filterWdg.setMinimum( minVal )
+				filterWdg.setLowValue( minVal )
+				filterWdg.setEnabled(True)
+
+			if maxPrVal.isValid() and maxOk:
+				filterWdg.setMaximum( maxVal )
+				filterWdg.setHighValue( maxVal )
+				filterWdg.setEnabled(True)
 
 
 		# create the maptool to draw polygons
@@ -152,14 +158,15 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 	def showEvent(self, event):
 		self.showRubberBands(True)
-		QWidget.showEvent(self, event)
+		return QWidget.showEvent(self, event)
 
 	def onClosing(self):
 		self.showRubberBands(False)
 		self.restorePrevMapTool()
 
 
-	def delete(self):
+	def deleteLater(self, *args):
+		#print "deleting", self
 		self.clearPolygon()
 
 		# restore the previous maptool
@@ -169,19 +176,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.polygonDrawer.deleteLater()
 		self.polygonDrawer = None
 
-		# unset delete function
-		self.delete = lambda: None
-
-	def __del__(self):
-		self.delete()
-
-	def deleteLater(self, *args):
-		self.delete()
-		super(self.__class__, self).deleteLater(*args)
-		
-	def destroy(self, *args):
-		self.delete()
-		super(self.__class__, self).destroy(*args)
+		QWidget.deleteLater(self, *args)
 
 
 	def _filterForKey(self, key):
