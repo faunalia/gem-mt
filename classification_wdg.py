@@ -33,6 +33,10 @@ class ClassificationDock(QDockWidget):
 		self.mainWidget = ClassificationWdg(iface, vl, self)
 		self.setupUi()
 
+	def deleteLater(self, *args):
+		self.mainWidget.deleteLater()
+		return QDockWidget.deleteLater(self, *args)
+
 	def closeEvent(self, event):
 		self.mainWidget.onClosing()
 		self.emit( SIGNAL( "closed" ), self )
@@ -110,7 +114,8 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self.restorePrevMapTool()
 
 
-	def delete(self):
+	def deleteLater(self, *args):
+		#print "deleting", self
 		# clear rubberbands
 		self.clearArea()
 		self.clearBuffers()
@@ -124,19 +129,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self.segmentDrawer.deleteLater()
 		self.segmentDrawer = None
 
-		# unset delete function
-		self.delete = lambda: None
-
-	def __del__(self):
-		self.delete()
-
-	def deleteLater(self, *args):
-		self.delete()
-		super(self.__class__, self).deleteLater(*args)
-		
-	def destroy(self, *args):
-		self.delete()
-		super(self.__class__, self).destroy(*args)
+		return QWidget.deleteLater(self, *args)
 
 
 	def showRubberBands(self, show=True):
