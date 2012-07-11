@@ -213,9 +213,11 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		# define buffer width in layer CRS unit
 		if self.canvas.mapUnits() == QGis.Meters:
-			bufferwidth = 200
+			bufferwidth = 100
+		elif self.canvas.mapUnits() == QGis.Feet:
+			bufferwidth = 300
 		else:
-			bufferwidth = 10
+			bufferwidth = 1.0
 
 		# append the new classification buffer to the table
 		data = [segment, (midlineRb, bufferRb), None]
@@ -447,8 +449,6 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			QApplication.restoreOverrideCursor()
 
 	def _loadClassifiedData(self):
-		outLayers = {}
-
 		# get the geometry which defines the area of interest
 		areaGeom = self.areaDrawer.geometry()
 		if not areaGeom or areaGeom.isGeosEmpty():
@@ -465,8 +465,24 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		# update the classification
 		self.updateClassification()
 
-		# fetch and loop through the features
 		inpr = self.vl.dataProvider()
+
+		# create the output layer
+		def memoryTypeName(fld):
+			if fld.type() == QVariant.Int:
+				return "integer"
+			elif fld.type() == QVariant.Double:
+				return "double"
+			return "string"
+
+		uri = u"Point?crs=epsg:4326&field=classType:string"
+		for index, field in sorted(inpr.fields().iteritems()):
+			uri += u"&field=%s:%s" % (field.name(), memoryTypeName(field))
+
+		outvl = QgsVectorLayer(uri, "classified", "memory")
+		outvl.startEditing()
+
+		# fetch and loop through the features
 		inpr.select(self.vl.pendingAllAttributesList(), areaGeom.boundingBox(), True)
 
 		toMapCrsTransform = QgsCoordinateTransform( self.vl.crs(), self.canvas.mapRenderer().destinationCrs() )
@@ -488,28 +504,48 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 				continue
 			geom = QgsGeometry.fromPoint(geom.asPoint())
 
-			# create layer if not already done and store it in the layer map
-			if not outLayers.has_key(classType):
-				name = 'shallow' if classType == 0 else 'deep'
-				outvl = outLayers[ classType ] = QgsVectorLayer("Point", name, "memory")
-				outpr = outvl.dataProvider()
-			else:
-				outvl = outLayers[ classType ]
-
 			# add the feature
-			outvl.dataProvider().addFeatures( [ f ] )
+			attrs = { 0 : 'shallow' if classType == 0 else 'deep' }
+			for index, attr in sorted(f.attributeMap().iteritems()):
+				attrs[ len(attrs) ] = attr
+			f.setAttributeMap( attrs )
+			outvl.addFeature( f )
 
+		if not outvl.commitChanges():
+			QMessageBox.warning( self, "Error", outvl.commitErrors().join("\n") )
+			outvl.deleteLater()
+			return
 
-		# add all the layers to the map
-		for name, vl in outLayers.iteritems():
-			# update layer's extent when new features have been added
-			# because change of extent in provider is not propagated to the layer
-			vl.updateExtents()
+		# update layer's extent when new features have been added
+		# because change of extent in provider is not propagated to the layer
+		outvl.updateExtents()
 
-			if hasattr(QgsMapLayerRegistry.instance(), 'addMapLayers'):	# available from QGis >= 1.8
-				QgsMapLayerRegistry.instance().addMapLayers( [ vl ] )
-			else:
-				QgsMapLayerRegistry.instance().addMapLayer( vl )
+		# set a categorized style
+		from qgis.core import QgsSymbolV2, QgsCategorizedSymbolRendererV2, QgsRendererCategoryV2
+		# create a category for each class
+		categories = []
+
+		# shallow earthquakes in red
+		symbol = QgsSymbolV2.defaultSymbol( QGis.Point )
+		symbol.setColor( QColor( "red" ) )
+		cat = QgsRendererCategoryV2( "shallow", symbol, "shallow" )
+		categories.append( cat )
+
+		# deep earthquakes in blue
+		symbol = QgsSymbolV2.defaultSymbol( QGis.Point )
+		symbol.setColor( QColor( "blue" ) )
+		cat = QgsRendererCategoryV2( "deep", symbol, "deep" )
+		categories.append( cat )
+
+		# create and set the renderer for the layer
+		renderer = QgsCategorizedSymbolRendererV2( "classType", categories )
+		outvl.setRendererV2( renderer )
+
+		# add the layer to the map
+		if hasattr(QgsMapLayerRegistry.instance(), 'addMapLayers'):	# available from QGis >= 1.8
+			QgsMapLayerRegistry.instance().addMapLayers( [ outvl ] )
+		else:
+			QgsMapLayerRegistry.instance().addMapLayer( outvl )
 
 
 	class BuffersTableModel(QStandardItemModel):
