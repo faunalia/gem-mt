@@ -178,8 +178,11 @@ class DoubleRangeFilter(RangeFilter):
     def setDecimals(self, val):
         self.minSpin.setDecimals(val)
         self.maxSpin.setDecimals(val)
+        # update slider min/max and low/high values
         self.slider.setMinimum( self._toSliderValue(self.minimum()) )
         self.slider.setMaximum( self._toSliderValue(self.maximum()) )
+        self.slider.setLowValue( self._toSliderValue(self.minimum()) )
+        self.slider.setHighValue( self._toSliderValue(self.maximum()) )
 
 
     def _toSliderValue(self, val):
@@ -247,14 +250,6 @@ class DateRangeFilter(RangeFilter):
 
     def highValueDate(self):
         return self.maxSpin.date()
-
-    def _sliderLowValueChanged(self, val):
-        #print val, self._fromSliderValue(val), self.slider.minimum(), self.slider.maximum()
-        self.setLowValue( self._fromSliderValue(val) )
-
-    def _sliderHighValueChanged(self, val):
-        #print val, self._fromSliderValue(val), self.slider.minimum(), self.slider.maximum()
-        self.setHighValue( self._fromSliderValue(val) )
 
 
     def _toSliderValue(self, val):
