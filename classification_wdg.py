@@ -276,6 +276,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		midlineRb.reset(False)
 		bufferRb.reset(True)
 		if dlg:
+			self.disconnect(self, SIGNAL("classificationUpdated"), dlg.refresh)
 			dlg.close()
 			dlg.deleteLater()
 
@@ -289,6 +290,9 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		self.redrawBufferRubberBand(bufferRb, segment, buffersize)
 		self.redrawMidlineRubberBand(midlineRb, segment)
+
+		if dlg:
+			dlg.refresh()
 
 
 	def buffersSelectionChanged(self, current, previous):
@@ -395,6 +399,8 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		if not dlg:
 			from plot_wdg import CrossSectionDlg
 			dlg = CrossSectionDlg(self._sharedData, self)
+			self.connect(dlg, SIGNAL("classificationUpdateRequested"), self.updateClassification)
+			self.connect(self, SIGNAL("classificationUpdated"), dlg.refresh)
 
 			# store the dialog into the item data
 			data[2] = dlg
@@ -414,7 +420,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		for row in range(model.rowCount()):
 			dlg = model.data( model.index(row, 0), Qt.UserRole ).toPyObject()[2]
-			if dlg == None:
+			if not dlg:
 				continue
 
 			classified = (shallow, deep) = dlg.classify()
@@ -430,8 +436,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 					self._sharedData[ fid ] = typeIndex
 
-
-			dlg.setDirty(True)
+		self.emit( SIGNAL("classificationUpdated") )
 
 
 	def loadClassifiedData(self):
