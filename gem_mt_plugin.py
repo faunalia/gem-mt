@@ -37,22 +37,22 @@ class GEM_MT_Plugin:
 
 	def initGui(self):
 		# create the actions
-		self.loadCsvAction = QAction( "Load CSV file", self.iface.mainWindow() )	#QIcon( ":/plugins/GEM-MT_plugin/icons/loadCsv.png" )
+		self.loadCsvAction = QAction( "Load CSV file", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/loadCsv.png" )
 		QObject.connect( self.loadCsvAction, SIGNAL( "triggered()" ), self.loadCsv )
 
-		self.plotStatsAction = QAction( "Plot statistics", self.iface.mainWindow() )	#QIcon( ":/plugins/GEM-MT_plugin/icons/plotStats.png" )
+		self.plotStatsAction = QAction( "Plot statistics", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/plotStats.png" )
 		self.plotStatsAction.setCheckable(True)
 		QObject.connect( self.plotStatsAction, SIGNAL( "toggled(bool)" ), self.displayFilterDock )
 
-		self.classificationAction = QAction( "Classification", self.iface.mainWindow() )	#QIcon( ":/plugins/GEM-MT_plugin/icons/classification.png" )
+		self.classificationAction = QAction( "Classification", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/classification.png" )
 		self.classificationAction.setCheckable(True)
 		QObject.connect( self.classificationAction, SIGNAL( "toggled(bool)" ), self.displayClassificationDock )
 
 
-		self.settingsAction = QAction( QIcon( ":/plugins/GEM-MT_plugins/settings" ), "Settings", self.iface.mainWindow() )
+		self.settingsAction = QAction( QIcon( ":/gem-mt_plugin/icons/settings" ), "Settings", self.iface.mainWindow() )
 		QObject.connect( self.settingsAction, SIGNAL( "triggered()" ), self.settings )
 
-		self.aboutAction = QAction( QIcon( ":/plugins/GEM-MT_plugins/about" ), "About", self.iface.mainWindow() )
+		self.aboutAction = QAction( QIcon( ":/gem-mt_plugin/icons/about" ), "About", self.iface.mainWindow() )
 		QObject.connect( self.aboutAction, SIGNAL("triggered()"), self.about )
 
 		# create a custom toolbar
