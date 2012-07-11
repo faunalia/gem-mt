@@ -202,7 +202,6 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		else:
 			self.polygonDrawer.rubberBand.show() if show else self.polygonDrawer.rubberBand.hide()
 
-
 	def drawPolygon(self):
 		# store the previous maptool
 		self.storePrevMapTool()
@@ -280,9 +279,12 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 			ok = True
 			for index, val in attrs.iteritems():
+				if not index2keyFieldMap.has_key( index ):
+					continue	# unused field
+
 				filterWdg = self._filterForKey( index2keyFieldMap[ index ] )
 				if not filterWdg:
-					continue
+					continue	# the field has no associated filter widget
 
 				if filterWdg.isActive() and not filterWdg.checkValue( val ):
 					ok = False
