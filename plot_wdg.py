@@ -28,6 +28,8 @@ from matplotlib.figure import Figure
 from matplotlib.dates import date2num
 from datetime import datetime
 
+from pylab import Line2D, YearLocator, MonthLocator, DayLocator, DateFormatter
+
 # import the Qt4Agg FigureCanvas object, that binds Figure to
 # Qt4Agg backend. It also inherits from QWidget
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
@@ -172,21 +174,21 @@ class HistogramPlotWdg(PlotWdg):
 
 		if isinstance(x[0], datetime): 
 			timedelta = max(x) - min(x)
-			if timedelta.days > 365:
-				self.axes.xaxis.set_major_locator( YearLocator() )
+			if timedelta.days > 365*5:
 				self.axes.xaxis.set_major_formatter( DateFormatter('%Y') )
-				self.axes.xaxis.set_minor_locator( MonthLocator() )
+				#self.axes.xaxis.set_major_locator( YearLocator() )
+				#self.axes.xaxis.set_minor_locator( MonthLocator() )
 				#bins = timedelta.days * 4 / 356	# four bins for a year
 
-			elif timedelta.days > 30:
-				self.axes.xaxis.set_major_locator( MonthLocator() )
+			elif timedelta.days > 30*5:
 				self.axes.xaxis.set_major_formatter( DateFormatter('%Y-%m') )
-				self.axes.xaxis.set_minor_locator( DayLocator() )
+				#self.axes.xaxis.set_major_locator( MonthLocator() )
+				#self.axes.xaxis.set_minor_locator( DayLocator() )
 				#bins = timedelta.days * 4 / 30	# four bins for a month
 
 			else:
-				self.axes.xaxis.set_major_locator( DayLocator() )
 				self.axes.xaxis.set_major_formatter( DateFormatter('%Y-%m-%d') )
+				#self.axes.xaxis.set_major_locator( DayLocator() )
 				#self.axes.xaxis.set_minor_locator( HourLocator() )
 				#bins = timedelta.days * 4	# four bins for a day
 
@@ -596,9 +598,6 @@ class NavigationToolbarCrossSection(NavigationToolbar):
 		# re-draw
 		self.canvas.draw()
 
-
-
-from pylab import Line2D
 
 class ClippedLine2D(Line2D):
 	"""
