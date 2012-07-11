@@ -91,18 +91,22 @@ class PlotWdg(FigureCanvasQTAgg):
 
 	def showEvent(self, event):
 		if self._dirty:
-			# remove the old stuff
-			self._clear()
-			# plot the new data
-			self._plot()
-			# unset the dirty flag
-			self._dirty = False
-			# udpdate axis limits
-			self.axes.relim()	# it doesn't shrink until removing all the objects on the axis
-			# re-draw
-			self.draw()
-
+			self.refreshData()
 		return FigureCanvasQTAgg.showEvent(self, event)
+
+
+	def refreshData(self):
+		# remove the old stuff
+		self._clear()
+		# plot the new data
+		self._plot()
+		# udpdate axis limits
+		self.axes.relim()	# it doesn't shrink until removing all the objects on the axis
+		# re-draw
+		self.draw()
+		# unset the dirty flag
+		self._dirty = False
+
 
 	def setData(self, x, y, info=None):
 		self.x, self.y = x or [], y or []
@@ -242,7 +246,8 @@ class ScatterPlotWdg(PlotWdg):
 
 class PlotDlg(QtGui.QDialog):
 	def __init__(self, *args, **kwargs):
-		QtGui.QDialog.__init__(self, kwargs.get('parent', None))
+		QtGui.QDialog.__init__(self, kwargs.get('parent', None), QtCore.Qt.Window)
+		self.setWindowTitle("Plot dialog")
 
 		layout = QtGui.QVBoxLayout(self)
 
@@ -255,10 +260,11 @@ class PlotDlg(QtGui.QDialog):
 
 	def enterEvent(self, event):
 		self.nav.set_cursor( NavigationToolbar.Cursor.POINTER )
+		return QtGui.QDialog.enterEvent(self, event)
 
 	def leaveEvent(self, event):
 		self.nav.unset_cursor()
-
+		return QtGui.QDialog.leaveEvent(self, event)
 
 	def createPlot(self):
 		raise ValueError("invalid or missing plot type")
@@ -267,8 +273,13 @@ class PlotDlg(QtGui.QDialog):
 		return NavigationToolbar(self.plot, self)
 
 
-	def setDirty(self, dirty):
-		self.plot.setDirty(dirty)
+	def refresh(self):
+		# query for refresh
+		self.plot.setDirty(True)
+
+		if self.isVisible():
+			# refresh if it's already visible
+			self.plot.refreshData()
 
 	def setData(self, x, y, data=None):
 		self.plot.setData(x, y, data)
@@ -305,6 +316,8 @@ class CrossSectionDlg(PlotDlg):
 
 		PlotDlg.__init__(self, parent=parent)
 
+		self.connect(self.nav, QtCore.SIGNAL("classificationUpdateRequested"), self.updateClassification)
+
 
 	def createPlot(self):
 		return CrossSectionGraph( self._classificationMap )
@@ -312,6 +325,14 @@ class CrossSectionDlg(PlotDlg):
 	def createToolBar(self):
 		return NavigationToolbarCrossSection(self.plot, self)
 
+
+	def closeEvent(self, event):
+		self.updateClassification()
+		return QtGui.QDialog.closeEvent(self, event)
+
+		
+	def updateClassification(self):
+		self.emit( QtCore.SIGNAL("classificationUpdateRequested") )
 
 	def classify(self):
 		hy = self.plot.hline.get_ydata()[0]
@@ -462,18 +483,24 @@ class NavigationToolbarCrossSection(NavigationToolbar):
 		NavigationToolbar.__init__(self, canvas, parent)
 
 		# add toolbutton to the draw horizontal line
-		self.hLineAction = QtGui.QAction( QtGui.QIcon(":/gem-mt_plugin/tools/hline"), "Draw horizontal line", self )
+		self.hLineAction = QtGui.QAction( QtGui.QIcon(":/gem-mt_plugin/icons/hline"), "Draw horizontal line", self )
 		self.hLineAction.setToolTip( "Draw horizontal line" )
 		self.hLineAction.setCheckable(True)
 		self.insertAction(self.homeAction, self.hLineAction)
 		self.connect(self.hLineAction, QtCore.SIGNAL("triggered()"), self.drawHLine)
 
 		# add toolbutton to the draw oblique line
-		self.oLineAction = QtGui.QAction( QtGui.QIcon(":/gem-mt_plugin/tools/oline"), "Draw oblique line", self )
+		self.oLineAction = QtGui.QAction( QtGui.QIcon(":/gem-mt_plugin/icons/oline"), "Draw oblique line", self )
 		self.oLineAction.setToolTip( "Draw oblique line" )
 		self.oLineAction.setCheckable(True)
 		self.insertAction(self.homeAction, self.oLineAction)
 		self.connect(self.oLineAction, QtCore.SIGNAL("triggered()"), self.drawOLine)
+
+		# add toolbutton to update the classification
+		self.updateClassificationAction = QtGui.QAction( QtGui.QIcon(":/gem-mt_plugin/icons/refresh"), "Update classification", self )
+		self.updateClassificationAction.setToolTip( "Update classification" )
+		self.insertAction(self.homeAction, self.updateClassificationAction)
+		self.connect(self.updateClassificationAction, QtCore.SIGNAL("triggered()"), self.updateClassification)
 
 		self.insertSeparator(self.homeAction)
 
@@ -484,6 +511,9 @@ class NavigationToolbarCrossSection(NavigationToolbar):
 
 	def configure_subplots(self, *args):
 		pass	# do nothing
+
+	def updateClassification(self):
+		self.emit( QtCore.SIGNAL("classificationUpdateRequested") )
 
 	def drawHLine(self):
 		if not self.hLineAction.isChecked():
@@ -552,12 +582,12 @@ class NavigationToolbarCrossSection(NavigationToolbar):
 	def onMouseRelease(self, event):
 		self._startPoint = None
 		
-		self.stopMouseCapture()
-		self.resetActionsState()
+		#self.stopMouseCapture()
+		#self.resetActionsState()
 
-		self._active = None
-		self.mode = ''
-		self.set_message(self.mode)
+		#self._active = None
+		#self.mode = ''
+		#self.set_message(self.mode)
 
 		self.canvas.draw()
 
