@@ -21,7 +21,7 @@ email                : brush.tyler@gmail.com
 """
 
 def name():
-	return "GEM Modellers Toolkit plugin (GEM-MT)"
+	return "GEM Modellers Toolkit plugin"
 
 def description():
 	return "Analysing and Processing Earthquake Catalogue Data"
