@@ -23,7 +23,7 @@ email                : brush.tyler@gmail.com
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-#import resources_rc
+import resources_rc
 
 class GEM_MT_Plugin:
 
@@ -49,10 +49,10 @@ class GEM_MT_Plugin:
 		QObject.connect( self.classificationAction, SIGNAL( "toggled(bool)" ), self.displayClassificationDock )
 
 
-		self.settingsAction = QAction( "Settings", self.iface.mainWindow() )	#QIcon( ":/plugins/GEM-MT_plugin/icons/settings.png" )
+		self.settingsAction = QAction( QIcon( ":/plugins/GEM-MT_plugins/settings" ), "Settings", self.iface.mainWindow() )
 		QObject.connect( self.settingsAction, SIGNAL( "triggered()" ), self.settings )
 
-		self.aboutAction = QAction( "About", self.iface.mainWindow() )	#QIcon( ":/plugins/GEM-MT_plugin/icons/about.png" )
+		self.aboutAction = QAction( QIcon( ":/plugins/GEM-MT_plugins/about" ), "About", self.iface.mainWindow() )
 		QObject.connect( self.aboutAction, SIGNAL("triggered()"), self.about )
 
 		# create a custom toolbar
