@@ -1,0 +1,54 @@
+GEM-MT * Copyright (c) 2011 Giuseppe Sucameli (Faunalia)
+
+GEM Modellers Toolkit (GEM-MT) is a EXPERIMENTAL plugin for QuantumGIS.
+GEM-MT aims to analyse and process earthquake catalogue data.
+
+
+How to use the plugin:
+- install and activate the plugin
+- open Plugins->GEM-MT->Settings dialog and set CSV delimiter and fields' names 
+(not needed if you're using the sample data shipped with the plugin)
+- press the "Load CVS file" on the plugins bar and load the CSV file (or go to 
+the plugin folder and load the "earthquakes.csv" file in the data directory)
+- activate the "Plot statistics" panel to be able to plot statistics of the 
+data on the whole data set or subsets defined by user drawn polygons or by 
+filtering the variables (see "Plot panel" section below)
+- or activate the "Classification" panel to start data classification (see 
+"Classification panel" section below).
+
+Plot panel:
+- to filter the data will be plotted just use the sliders in the panel and/or
+define an area by pressing the "Draw" button and then drawing a polygon
+- select one of the plot types, then X,Y fields, add a title and press the 
+"Plot" button to see the result
+- save the figure using buttons on the toolbar.
+
+Classification panel:
+- delineate the Area of Interest defined by a user drawn polygon
+- press the "New" button to define buffer areas drawing a segment on the map 
+which is the midline of the area and then updating the buffer width to 
+shrink/grow the buffer around the midline (buffer width unit depends on the map 
+Coordinate Reference System unit)
+- click on the "Open cross section" button to project all data that within the 
+selected buffer area onto the vertical plane defined by the buffer midline, 
+they will be plotted in a Distance/Depth cross section (see "Cross section 
+dialog" section below)
+- after doing the previous steps for each buffer area you want to define 
+click on the "Display classified earthquakes" button to see the result loaded 
+on the map.
+
+Cross section dialog:
+- the cross section display data within a buffer area plotted in a 
+- press the "Draw horizontal line" button from the cross section toolbar to
+draw a line to separate out the shallow earthquakes above this line from the 
+deeper ones below it
+- press the "Draw oblique line" button from the cross section toolbar to draw
+a line inclined from upper left to lower right, that line will define a third 
+group of indeterminate earthquakes between the inclined and horizontal lines 
+
+
+
+
+Visit the page on the QGis Hub site:
+    http://hub.qgis.org/projects/gem-mt
+
