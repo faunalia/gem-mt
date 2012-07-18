@@ -26,6 +26,8 @@ from PyQt4.QtGui import *
 from qgis.core import *
 from qgis.gui import *
 
+from utils import Utils
+
 class FilterDock(QDockWidget):
 	def __init__(self, iface, vl, parent=None):
 		QDockWidget.__init__(self, parent)
@@ -67,60 +69,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self._prevMapTool = None
 
 		# setup the magnitude, depth and range filters
-		self.magnitudeRangeFilter.setEnabled(False)
-		self.depthRangeFilter.setEnabled(False)
-		self.dateRangeFilter.setEnabled(False)
-
-		self.magnitudeRangeFilter.setOrientation( Qt.Horizontal )
-		self.depthRangeFilter.setOrientation( Qt.Horizontal )
-		self.dateRangeFilter.setOrientation( Qt.Horizontal )
-
-		self.magnitudeRangeFilter.setDecimals( 1 )
-		self.magnitudeRangeFilter.setMinimum( 0 )
-		self.magnitudeRangeFilter.setMaximum( 10 )
-		self.magnitudeRangeFilter.setHighValue( 10 )
-
-		# take min/max values index from the data provider
-		pr = self.vl.dataProvider()
-
-		from settings_dlg import Settings
-		key2indexFieldMap = Settings.key2indexFieldMap( pr.fields() )
-		for key, index in key2indexFieldMap.iteritems():
-			filterWdg = self._filterForKey( key )
-			if not filterWdg:
-				continue
-
-			minPrVal = self.vl.dataProvider().minimumValue( index )
-			maxPrVal = self.vl.dataProvider().maximumValue( index )
-
-			if filterWdg == self.dateRangeFilter:
-				minVal = minPrVal.toDate()
-				minOk = minVal.isValid()
-
-				maxVal = maxPrVal.toDate()
-				maxOk = maxVal.isValid()
-
-			elif filterWdg == self.depthRangeFilter:
-				minVal, minOk = minPrVal.toInt()
-				maxVal, maxOk = maxPrVal.toInt()
-
-			elif filterWdg == self.magnitudeRangeFilter:
-				minVal, minOk = minPrVal.toDouble()
-				maxVal, maxOk = maxPrVal.toDouble()
-
-			else:
-				continue
-
-			if minPrVal.isValid() and minOk:
-				filterWdg.setMinimum( minVal )
-				filterWdg.setLowValue( minVal )
-				filterWdg.setEnabled(True)
-
-			if maxPrVal.isValid() and maxOk:
-				filterWdg.setMaximum( maxVal )
-				filterWdg.setHighValue( maxVal )
-				filterWdg.setEnabled(True)
-
+		self.setupFilters()
 
 		# create the maptool to draw polygons
 		self.polygonDrawer = PolygonDrawer( self.canvas, {'color':QColor("black"), 'enableSnap':False, 'keepAfterEnd':True} )
@@ -134,7 +83,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.updateAxesCombos()
 
 		# populate both axis combos with field names
-		for index, fld in pr.fields().iteritems():
+		for index, fld in self.vl.dataProvider().fields().iteritems():
 			self.xAxisCombo.addItem( fld.name(), QVariant(index) )
 			self.yAxisCombo.addItem( fld.name(), QVariant(index) )
 
@@ -195,6 +144,114 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.yAxisCombo.setEnabled( self._hasPlotYField( self._getPlotType() ) )
 
 
+	def setupFilters(self):
+		# setup the magnitude, depth and range filters
+		self.magnitudeRangeFilter.setEnabled(False)
+		self.magnitudeRangeFilter.setOrientation( Qt.Horizontal )
+		self.magnitudeRangeFilter.setDecimals( 1 )
+		self.magnitudeRangeFilter.setMinimum( 0 )
+		self.magnitudeRangeFilter.setMaximum( 10 )
+
+		self.depthRangeFilter.setEnabled(False)
+		self.depthRangeFilter.setOrientation( Qt.Horizontal )
+		self.depthRangeFilter.setMinimum( 0 )
+		self.depthRangeFilter.setMaximum( 1000 )
+
+		self.dateRangeFilter.setEnabled(False)
+		self.dateRangeFilter.setOrientation( Qt.Horizontal )
+
+		# take min/max values index from the data provider
+		# let's reset the subset string to get real min/max
+		pr = self.vl.dataProvider()
+		pr.setSubsetString("")
+
+		key2indexFieldMap = Utils.key2indexFieldMap( pr.fields() )
+		for key, index in key2indexFieldMap.iteritems():
+			filterWdg = self._filterForKey( key )
+			if not filterWdg:
+				continue
+
+			minVal = pr.minimumValue( index )
+			maxVal = pr.maximumValue( index )
+
+			if minVal.isValid() and maxVal.isValid():
+				# check for empty strings (the provider could be unable to retrieve values)
+				if minVal.type() == QVariant.String and minVal.toString().isEmpty():
+					minVal = None
+				if maxVal.type() == QVariant.String and maxVal.toString().isEmpty():
+					maxVal = None
+
+				if minVal is None or maxVal is None:
+					# let's search the real min/max values
+					self.vl.select([index], QgsRectangle(), False)
+					f = QgsFeature()
+					while self.vl.nextFeature( f ):
+						fval = f.attributeMap()[index]
+						if not minVal or fval.toString() < minVal.toString():
+							minVal = fval
+						if not maxVal or fval.toString() > maxVal.toString():
+							maxVal = fval
+
+				# setup filter min/max range
+				try:
+					filterWdg.setMinimum( minVal )
+					filterWdg.setLowValue( minVal )
+					filterWdg.setMaximum( maxVal )
+					filterWdg.setHighValue( maxVal )
+				except:
+					# unable to set min/max, skip the filter
+					continue
+
+				filterWdg.setEnabled(True)
+				self.connect(filterWdg, SIGNAL("changeFinished"), self.updateMap)
+
+		# filter default ranges
+		self.magnitudeRangeFilter.setLowValue( 3.5 )
+		self.magnitudeRangeFilter.setHighValue( 10 )
+		self.depthRangeFilter.setLowValue( 0 )
+		self.depthRangeFilter.setHighValue( 250 )
+
+		self.updateMap()
+
+
+	def updateMap(self, *args):
+		pr = self.vl.dataProvider()
+		key2indexFieldMap = Utils.key2indexFieldMap( pr.fields() )
+
+		# convert filters to subset string
+		subsets = []
+		for key, index in key2indexFieldMap.iteritems():
+			filterWdg = self._filterForKey( key )
+			if not filterWdg or not filterWdg.isActive():
+				continue
+
+			name = pr.fields()[index].name()
+
+			# define a new subset string when the low value is greather then the minimum value
+			if filterWdg.lowValue() > filterWdg.minimum():
+				minVal = QVariant(filterWdg.lowValue())
+				if minVal.type() in (QVariant.Date, QVariant.DateTime):
+					dataFormat = "yyyy/MM/dd" if self.vl.providerType() == 'ogr' else "yyyy-MM-dd"
+					minVal = u"'%s'" % minVal.toDate().toString(dataFormat)
+				else:
+					minVal = minVal.toString()
+				subsets.append( u"\"%s\" >= %s" % (name.replace('"', '""'), minVal) )
+
+			# define a new subset string when the high value is less then the maximum value
+			if filterWdg.highValue() < filterWdg.maximum():
+				maxVal = QVariant(filterWdg.highValue())
+				if maxVal.type() in (QVariant.Date, QVariant.DateTime):
+					dataFormat = "yyyy/MM/dd" if self.vl.providerType() == 'ogr' else "yyyy-MM-dd"
+					maxVal = u"'%s'" % maxVal.toDate().toString(dataFormat)
+				else:
+					maxVal = maxVal.toString()
+				subsets.append( u"\"%s\" <= %s" % (name.replace('"', '""'), maxVal) )
+
+		# set the subset string, then update the layer
+		if self.vl.setSubsetString( u" AND ".join(subsets) ):
+			self.vl.triggerRepaint()
+
+
 	def showRubberBands(self, show=True):
 		""" show/hide all the rubberbands """
 		if self.polygonDrawer.isEmittingPoints:
@@ -244,8 +301,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		yIndex = self.yAxisCombo.itemData( self.yAxisCombo.currentIndex() ).toInt()[0]
 
 		pr = self.vl.dataProvider()
-		from settings_dlg import Settings
-		index2keyFieldMap = Settings.index2keyFieldMap( pr.fields() )
+		index2keyFieldMap = Utils.index2keyFieldMap( pr.fields() )
 
 		indexes = []
 		for index, fld in pr.fields().iteritems():
@@ -257,7 +313,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 				indexes.append( yIndex )
 				continue
 
-			filterWdg = self._filterForKey( Settings.fieldName2key( fld.name() ) )
+			filterWdg = self._filterForKey( Utils.fieldName2key( fld.name() ) )
 			if filterWdg and filterWdg.isActive():
 				indexes.append( index )
 
