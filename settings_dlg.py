@@ -51,48 +51,6 @@ class Settings:
 	def dateField():
 		return QSettings("/GEM-MT_plugin").value("date_field", "Date").toString()
 
-	
-	@staticmethod
-	def key2indexFieldMap( fields ):
-		key2index = {}
-
-		for index, fld in fields.iteritems():
-			key = Settings.fieldName2key( fld.name() )
-			if key:
-				key2index[ key ] = index
-
-		return key2index
-
-	@staticmethod
-	def index2keyFieldMap( fields ):
-		index2key = {}
-
-		for index, fld in fields.iteritems():
-			key = Settings.fieldName2key( fld.name() )
-			if key:
-				index2key[ index ] = key
-
-		return index2key
-
-	@staticmethod
-	def fieldName2key( fieldName ):
-		if not Settings.longitudeField().isEmpty() and \
-				fieldName.startsWith( Settings.longitudeField(), Qt.CaseInsensitive ):
-			return 'longitude'
-		if not Settings.latitudeField().isEmpty() and \
-				fieldName.startsWith( Settings.latitudeField(), Qt.CaseInsensitive ):
-			return 'latitude'
-		if not Settings.magnitudeField().isEmpty() and \
-				fieldName.startsWith( Settings.magnitudeField(), Qt.CaseInsensitive ):
-			return 'magnitude'
-		if not Settings.depthField().isEmpty() and \
-				fieldName.startsWith( Settings.depthField(), Qt.CaseInsensitive ):
-			return 'depth'
-		if not Settings.dateField().isEmpty() and \
-				fieldName.startsWith( Settings.dateField(), Qt.CaseInsensitive ):
-			return 'date'
-		return None
-
 
 from ui.settingsDlg_ui import Ui_Dialog
 class SettingsDlg(QDialog, Ui_Dialog):
