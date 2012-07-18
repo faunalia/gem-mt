@@ -50,7 +50,6 @@ class Drawer(qgis.gui.QgsMapToolEmitPoint):
 
 
 	def deleteLater(self, *args):
-		print "deleting", self
 		QObject.disconnect(self.canvas, SIGNAL( "mapToolSet(QgsMapTool *)" ), self._toolChanged)
 		self.reset()
 		del self.rubberBand
