@@ -47,11 +47,11 @@ class PlotWdg(FigureCanvasQTAgg):
 		self._dirty = False
 		self.collections = []
 
-		if not data: data = []
-		self.setData( data[0] if len(data) > 0 else None, data[1] if len(data) > 1 else None, data[2] if len(data) > 2 else None )
+		if not data: data = [None]
+		self.setData( *data )
 
-		if not labels: labels = []
-		self.setLabels( labels[0] if len(labels) > 0 else None, labels[1] if len(labels) > 1 else None )
+		if not labels: labels = [None]
+		self.setLabels( *labels )
 
 		self.setTitle( title )
 
@@ -108,7 +108,7 @@ class PlotWdg(FigureCanvasQTAgg):
 		self._dirty = False
 
 
-	def setData(self, x, y, info=None):
+	def setData(self, x, y=None, info=None):
 		self.x, self.y = x or [], y or []
 		self.info = info or []
 		self._dirty = True
@@ -116,7 +116,7 @@ class PlotWdg(FigureCanvasQTAgg):
 	def setTitle(self, title):
 		self.axes.set_title( title or "" )
 
-	def setLabels(self, xLabel, yLabel):
+	def setLabels(self, xLabel, yLabel=None):
 		self.axes.set_xlabel( xLabel or "" )
 		self.axes.set_ylabel( yLabel or "" )
 
@@ -131,6 +131,29 @@ class PlotWdg(FigureCanvasQTAgg):
 
 	def _plot(self):
 		pass
+
+
+	@staticmethod
+	def _setAxisDateFormatter(axis, data):
+		timedelta = max(data) - min(data)
+		if timedelta.days > 365*5:
+			axis.set_major_formatter( DateFormatter('%Y') )
+			#axis.set_major_locator( YearLocator() )
+			#axis.set_minor_locator( MonthLocator() )
+			#bins = timedelta.days * 4 / 356	# four bins for a year
+
+		elif timedelta.days > 30*5:
+			axis.set_major_formatter( DateFormatter('%Y-%m') )
+			#axis.set_major_locator( MonthLocator() )
+			#axis.set_minor_locator( DayLocator() )
+			#bins = timedelta.days * 4 / 30	# four bins for a month
+
+		else:
+			axis.set_major_formatter( DateFormatter('%Y-%m-%d') )
+			#axis.set_major_locator( DayLocator() )
+			#axis.set_minor_locator( HourLocator() )
+			#bins = timedelta.days * 4	# four bins for a day
+
 
 	@staticmethod
 	def _valueFromQVariant(val):
@@ -164,6 +187,11 @@ class PlotWdg(FigureCanvasQTAgg):
 		except ValueError:
 			pass
 
+		if val.canConvert(QtCore.QVariant.Double):
+			return val.toDouble()[0]
+		elif val.canConvert(QtCore.QVariant.Int):
+			return val.toInt()[0]
+
 		return unicode(s)
 
 
@@ -177,25 +205,7 @@ class HistogramPlotWdg(PlotWdg):
 		x = map(PlotWdg._valueFromQVariant, self.x)
 
 		if isinstance(x[0], datetime): 
-			timedelta = max(x) - min(x)
-			if timedelta.days > 365*5:
-				self.axes.xaxis.set_major_formatter( DateFormatter('%Y') )
-				#self.axes.xaxis.set_major_locator( YearLocator() )
-				#self.axes.xaxis.set_minor_locator( MonthLocator() )
-				#bins = timedelta.days * 4 / 356	# four bins for a year
-
-			elif timedelta.days > 30*5:
-				self.axes.xaxis.set_major_formatter( DateFormatter('%Y-%m') )
-				#self.axes.xaxis.set_major_locator( MonthLocator() )
-				#self.axes.xaxis.set_minor_locator( DayLocator() )
-				#bins = timedelta.days * 4 / 30	# four bins for a month
-
-			else:
-				self.axes.xaxis.set_major_formatter( DateFormatter('%Y-%m-%d') )
-				#self.axes.xaxis.set_major_locator( DayLocator() )
-				#self.axes.xaxis.set_minor_locator( HourLocator() )
-				#bins = timedelta.days * 4	# four bins for a day
-
+			self._setAxisDateFormatter( self.axes.xaxis, x )
 			n, bins, patches = self.axes.hist(date2num(x), bins=50)
 			self.fig.autofmt_xdate()
 
@@ -215,28 +225,22 @@ class ScatterPlotWdg(PlotWdg):
 		x = map(PlotWdg._valueFromQVariant, self.x)
 		y = map(PlotWdg._valueFromQVariant, self.y)
 
-		if isinstance(x[0], datetime): 
-			timedelta = max(x) - min(x)
-			if timedelta.days > 365:
-				self.axes.xaxis.set_major_locator( YearLocator() )
-				self.axes.xaxis.set_major_formatter( DateFormatter('%Y') )
-				self.axes.xaxis.set_minor_locator( MonthLocator() )
-				#bins = timedelta.days * 4 / 356	# four bins for a year
+		if isinstance(x[0], datetime) and isinstance(y[0], datetime):
+			self._setAxisDateFormatter( self.axes.xaxis, x )
+			self._setAxisDateFormatter( self.axes.yaxis, y )
+			items = self.axes.scatter(date2num(x), date2num(y))
+			self.fig.autofmt_xdate()
+			self.fig.autofmt_ydate()
 
-			elif timedelta.days > 30:
-				self.axes.xaxis.set_major_locator( MonthLocator() )
-				self.axes.xaxis.set_major_formatter( DateFormatter('%Y-%m') )
-				self.axes.xaxis.set_minor_locator( DayLocator() )
-				#bins = timedelta.days * 4 / 30	# four bins for a month
-
-			else:
-				self.axes.xaxis.set_major_locator( DayLocator() )
-				self.axes.xaxis.set_major_formatter( DateFormatter('%Y-%m-%d') )
-				#self.axes.xaxis.set_minor_locator( HourLocator() )
-				#bins = timedelta.days * 4	# four bins for a day
-
+		elif isinstance(x[0], datetime):
+			self._setAxisDateFormatter( self.axes.xaxis, x )
 			items = self.axes.plot_date(x, y)
 			self.fig.autofmt_xdate()
+
+		elif isinstance(y[0], datetime): 
+			self._setAxisDateFormatter( self.axes.xaxis, x )
+			items = self.axes.scatter(x, date2num(y))
+			self.fig.autofmt_ydate()
 
 		else:
 			items = self.axes.scatter(x, y)
