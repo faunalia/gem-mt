@@ -84,7 +84,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>Delimiter (reg. expr.)</string>
+         <string>Delimiter</string>
         </property>
        </widget>
       </item>
@@ -103,7 +103,7 @@
         </item>
         <item>
          <property name="text">
-          <string notr="true" extracomment="comma and strings within double quotes">,(?!\s)</string>
+          <string>\t</string>
          </property>
         </item>
        </widget>

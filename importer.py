@@ -252,7 +252,7 @@ class CsvToSL(QObject):
 		csvUrl = QUrl.fromLocalFile( self._fn )
 		csvUrl.setQueryItems( [
 			( "delimiter", Settings.delimiter() ),
-			( "delimiterType", "regexp"),
+			( "delimiterType", "plain"),
 			( "xField", Settings.longitudeField() ),
 			( "yField", Settings.latitudeField() )
 		] )

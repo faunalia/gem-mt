@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ui/settingsDlg.ui'
 #
-# Created: Wed Jul 18 12:18:54 2012
+# Created: Wed Jul 18 12:19:54 2012
 #      by: PyQt4 UI code generator 4.8.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -64,7 +64,6 @@ class Ui_Dialog(object):
         self.delimiterCombo.addItem(_fromUtf8(""))
         self.delimiterCombo.setItemText(0, _fromUtf8(","))
         self.delimiterCombo.addItem(_fromUtf8(""))
-        self.delimiterCombo.setItemText(1, _fromUtf8(",(?!\\s)"))
         self.gridLayout_3.addWidget(self.delimiterCombo, 0, 1, 1, 1)
         self.label_6 = QtGui.QLabel(self.groupBox_2)
         self.label_6.setObjectName(_fromUtf8("label_6"))
@@ -98,7 +97,8 @@ class Ui_Dialog(object):
         self.label_2.setText(QtGui.QApplication.translate("Dialog", "Depth", None, QtGui.QApplication.UnicodeUTF8))
         self.label_3.setText(QtGui.QApplication.translate("Dialog", "Date", None, QtGui.QApplication.UnicodeUTF8))
         self.groupBox_2.setTitle(QtGui.QApplication.translate("Dialog", "CSV settings", None, QtGui.QApplication.UnicodeUTF8))
-        self.label_4.setText(QtGui.QApplication.translate("Dialog", "Delimiter (reg. expr.)", None, QtGui.QApplication.UnicodeUTF8))
+        self.label_4.setText(QtGui.QApplication.translate("Dialog", "Delimiter", None, QtGui.QApplication.UnicodeUTF8))
+        self.delimiterCombo.setItemText(1, QtGui.QApplication.translate("Dialog", "\\t", None, QtGui.QApplication.UnicodeUTF8))
         self.label_6.setText(QtGui.QApplication.translate("Dialog", "Latitude", None, QtGui.QApplication.UnicodeUTF8))
         self.label_5.setText(QtGui.QApplication.translate("Dialog", "Longitude", None, QtGui.QApplication.UnicodeUTF8))
 
