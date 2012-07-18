@@ -109,7 +109,7 @@ class RangeFilter(QtGui.QWidget):
     def setMinimum(self, value):
         val = self._getValue( value )
         if val is None:
-            raise TypeError("invalid type %s" % repr(value))
+            raise TypeError("invalid type for '%s'" % repr(value))
 
         self.minSpin.setMinimum(val)
         self.maxSpin.setMinimum(val)
@@ -118,14 +118,18 @@ class RangeFilter(QtGui.QWidget):
     def setMaximum(self, value):
         val = self._getValue( value )
         if val is None:
-            raise TypeError("invalid type %s" % repr(value) )
+            raise TypeError("invalid type for '%s'" % repr(value) )
 
         self.minSpin.setMaximum(val)
         self.maxSpin.setMaximum(val)
         self.slider.setMaximum( self._toSliderValue(val) )
 
         # avoid resizing when the max value changes
-        self.minSpin.setFixedSize( self.minSpin.sizeHint() )
+        minSpinSize = self.minSpin.sizeHint()
+        maxSpinSize = self.maxSpin.sizeHint()
+        w,h = max(minSpinSize.width(), maxSpinSize.width()), max(minSpinSize.height(), maxSpinSize.height())
+        self.minSpin.setFixedSize( w, h )
+        self.maxSpin.setFixedSize( w, h )
 
 
     def lowValue(self):
@@ -137,12 +141,13 @@ class RangeFilter(QtGui.QWidget):
     def setLowValue(self, value):
         val = self._getValue( value )
         if val is None:
-            raise TypeError("invalid type %s" % repr(value) )
+            raise TypeError("invalid type for '%s'" % repr(value) )
 
-        if value < self.minimum():
-            value = self.minimum()
+        minVal = self._getValue( self.minimum() )
+        if val < minVal:
+            val = minVal
 
-        if value == self.lowValue():
+        if val == self._getValue( self.lowValue() ):
             return
 
         self.minSpin.blockSignals(True)
@@ -158,12 +163,13 @@ class RangeFilter(QtGui.QWidget):
     def setHighValue(self, value):
         val = self._getValue( value )
         if val is None:
-            raise TypeError("invalid type %s" % repr(value) )
+            raise TypeError("invalid type for '%s'" % repr(value) )
 
-        if value > self.maximum():
-            value = self.maximum()
+        maxVal = self._getValue(self.maximum())
+        if val > maxVal:
+            val = maxVal
 
-        if value == self.highValue():
+        if val == self._getValue(self.highValue()):
             return
 
         self.maxSpin.blockSignals(True)
@@ -177,19 +183,24 @@ class RangeFilter(QtGui.QWidget):
         self.emit( QtCore.SIGNAL("highValueChanged"), val )
 
 
+    def _updateValues(self):
+        # avoid multiple signals when values don't change
+        if hasattr(self, '_lastLowValueOnReleased') and hasattr(self, '_lastHighValueOnReleased'):
+            if self._lastLowValueOnReleased == self.lowValue() and self._lastHighValueOnReleased == self.highValue():
+                return False
+
+        self._lastLowValueOnReleased = self.lowValue()
+        self._lastHighValueOnReleased = self.highValue()
+        return True
+
     def _moved(self, *args):
         self._sliderLowValueChanged(self.slider.lowValue())
         self._sliderHighValueChanged(self.slider.highValue())
         self.emit( QtCore.SIGNAL("valuesChanged"), self.lowValue(), self.highValue() )
 
     def _released(self, *args):
-        # avoid multiple signals when values don't change
-        if hasattr(self, '_lastLowValueOnReleased') and hasattr(self, '_lastHighValueOnReleased'):
-            if self._lastLowValueOnReleased == self.lowValue() and self._lastHighValueOnReleased == self.highValue():
-                return
-
-        self._lastLowValueOnReleased = self.lowValue()
-        self._lastHighValueOnReleased = self.highValue()
+        if not self._updateValues():
+            return
         # do not emit the signal now, wait the event loop
         QtCore.QTimer.singleShot(0, self._onChangeFinished)
 
@@ -350,12 +361,32 @@ if __name__ == "__main__":
     import sys
     app = QtGui.QApplication(sys.argv)
 
-    rangeFilter = DoubleRangeFilter()
-    rangeFilter.setDecimals(1)
-    rangeFilter.setMinimum(-0.3)
-    rangeFilter.setLowValue(-0.3)
-    rangeFilter.setMaximum(7.1)
-    rangeFilter.setHighValue(7.1)
+    if len(sys.argv) < 2 or sys.argv[1] == 'int':
+        rangeFilter = RangeFilter()
+        rangeFilter.setMinimum(-2)
+        rangeFilter.setLowValue(-2)
+        rangeFilter.setMaximum(7)
+        rangeFilter.setHighValue(7)
+
+    elif sys.argv[1] == 'double':
+        rangeFilter = DoubleRangeFilter()
+        rangeFilter.setDecimals(1)
+        rangeFilter.setMinimum(-0.3)
+        rangeFilter.setLowValue(-0.3)
+        rangeFilter.setMaximum(7.1)
+        rangeFilter.setHighValue(7.1)
+
+    elif sys.argv[1] == 'date':
+        rangeFilter = DateRangeFilter()
+        rangeFilter.setMinimum(QtCore.QDate(2000,01,01))
+        rangeFilter.setLowValue(QtCore.QDate(2000,01,01))
+        rangeFilter.setMaximum(QtCore.QDate(2001,12,31))
+        rangeFilter.setHighValue(QtCore.QDate(2001,12,31))
+
+    else:
+        print "invalid argument %s" % sys.argv[1]
+        sys.exit(1)
+
     rangeFilter.setOrientation( QtCore.Qt.Horizontal )
 
     def echo(value):
