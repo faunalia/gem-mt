@@ -239,13 +239,6 @@ class CsvToSL(QObject):
 		# layer base name and dir path
 		base_name = QFileInfo(self._fn).baseName()
 		dir_path = QFileInfo(self._fn).absoluteDir()
-		sqlite_path = dir_path.absoluteFilePath( u"%s.sqlite" % base_name )
-
-		# uri pointing to the new SL database
-		from qgis.core import QgsDataSourceURI
-		slUri = QgsDataSourceURI()
-		slUri.setDatabase( sqlite_path )
-		slUri.setDataSource( "", base_name, "GEOMETRY" )
 
 		# create the uri for the delimitedtext provider
 		from .settings_dlg import Settings
@@ -273,6 +266,17 @@ class CsvToSL(QObject):
 			QMessageBox.warning( self.parent(), "Invalid layer", 
 								u"Unable to get data from the selected file. \nSetup Lat/Long field names and delimiter from the Settings dialog, \nthen try again." )
 			return (self.INVALID_LATLON, None)
+
+		# check whether the CSV file has to be imported to SL db
+		if not Settings.importCsvToSl():
+			return (self.OK, csvVl)
+
+		# uri pointing to the new SL database
+		from qgis.core import QgsDataSourceURI
+		sqlite_path = dir_path.absoluteFilePath( u"%s.sqlite" % base_name )
+		slUri = QgsDataSourceURI()
+		slUri.setDatabase( sqlite_path )
+		slUri.setDataSource( "", base_name, "GEOMETRY" )
 
 		importer = Ogr2ogrImporter(csvVl, slUri, self.parent())
 		#importer = QGisLayerImporter(csvVl, slUri, self.parent())

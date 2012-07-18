@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ui/settingsDlg.ui'
 #
-# Created: Wed Jul 18 12:19:54 2012
+# Created: Wed Jul 18 12:39:39 2012
 #      by: PyQt4 UI code generator 4.8.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -17,7 +17,7 @@ except AttributeError:
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName(_fromUtf8("Dialog"))
-        Dialog.resize(400, 315)
+        Dialog.resize(400, 343)
         self.gridLayout = QtGui.QGridLayout(Dialog)
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
         self.groupBox = QtGui.QGroupBox(Dialog)
@@ -79,6 +79,10 @@ class Ui_Dialog(object):
         self.latEdit.setText(_fromUtf8("LAT"))
         self.latEdit.setObjectName(_fromUtf8("latEdit"))
         self.gridLayout_3.addWidget(self.latEdit, 2, 1, 1, 1)
+        self.csvToSlCheck = QtGui.QCheckBox(self.groupBox_2)
+        self.csvToSlCheck.setChecked(True)
+        self.csvToSlCheck.setObjectName(_fromUtf8("csvToSlCheck"))
+        self.gridLayout_3.addWidget(self.csvToSlCheck, 3, 0, 1, 2)
         self.gridLayout.addWidget(self.groupBox_2, 0, 0, 1, 2)
 
         self.retranslateUi(Dialog)
@@ -101,4 +105,5 @@ class Ui_Dialog(object):
         self.delimiterCombo.setItemText(1, QtGui.QApplication.translate("Dialog", "\\t", None, QtGui.QApplication.UnicodeUTF8))
         self.label_6.setText(QtGui.QApplication.translate("Dialog", "Latitude", None, QtGui.QApplication.UnicodeUTF8))
         self.label_5.setText(QtGui.QApplication.translate("Dialog", "Longitude", None, QtGui.QApplication.UnicodeUTF8))
+        self.csvToSlCheck.setText(QtGui.QApplication.translate("Dialog", "Import the CSV file to SL database", None, QtGui.QApplication.UnicodeUTF8))
 

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>315</height>
+    <height>343</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -133,6 +133,16 @@
        <widget class="QLineEdit" name="latEdit">
         <property name="text">
          <string notr="true">LAT</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="QCheckBox" name="csvToSlCheck">
+        <property name="text">
+         <string>Import the CSV file to SL database</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>

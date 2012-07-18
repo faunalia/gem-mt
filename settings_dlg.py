@@ -49,6 +49,10 @@ class Settings:
 		return QSettings("/GEM-MT_plugin").value("lat_field", "Latitude").toString()
 
 	@staticmethod
+	def importCsvToSl():
+		return QSettings("/GEM-MT_plugin").value("import_csv_to_sl", True).toBool()
+
+	@staticmethod
 	def magnitudeField():
 		return QSettings("/GEM-MT_plugin").value("magnitude_field", "Magnitude").toString()
 
@@ -72,6 +76,7 @@ class SettingsDlg(QDialog, Ui_Dialog):
 		self.delimiterCombo.setEditText( Settings.delimiter() )
 		self.longEdit.setText( Settings.longitudeField() )
 		self.latEdit.setText( Settings.latitudeField() )
+		self.csvToSlCheck.setChecked( Settings.importCsvToSl() )
 		self.magnitudeEdit.setText( Settings.magnitudeField() )
 		self.depthEdit.setText( Settings.depthField() )
 		self.dateEdit.setText( Settings.dateField() )
@@ -82,6 +87,7 @@ class SettingsDlg(QDialog, Ui_Dialog):
 		settings.setValue("delimiter", self.delimiterCombo.currentText())
 		settings.setValue("long_field", self.longEdit.text())
 		settings.setValue("lat_field", self.latEdit.text())
+		settings.setValue("import_csv_to_sl", self.csvToSlCheck.isChecked())
 		settings.setValue("magnitude_field", self.magnitudeEdit.text())
 		settings.setValue("depth_field", self.depthEdit.text())
 		settings.setValue("date_field", self.dateEdit.text())
