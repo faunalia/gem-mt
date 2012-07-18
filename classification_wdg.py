@@ -23,9 +23,6 @@ email                : brush.tyler@gmail.com
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from qgis.core import *
-from qgis.gui import *
-
 class ClassificationDock(QDockWidget):
 	def __init__(self, iface, vl, parent=None):
 		QDockWidget.__init__(self, parent)
@@ -48,8 +45,13 @@ class ClassificationDock(QDockWidget):
 		self.setWidget( self.mainWidget )
 
 
-from ui.classificationWdg_ui import Ui_ClassificationWdg
+from qgis.core import *
+from qgis.gui import *
+
 from MapTools import PolygonDrawer, SegmentDrawer
+from utils import Utils, LayerStyler
+
+from ui.classificationWdg_ui import Ui_ClassificationWdg
 
 class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
@@ -141,15 +143,17 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self.segmentDrawer.reset()
 
 		model = self.buffersTable.model()
+		units = self.canvas.mapUnits()
 		for row in range(model.rowCount()):
-
 			# get item data
-			data = model.data( model.index(row, 0), Qt.UserRole ).toPyObject()
-			segment, (midlineRb, bufferRb), dlg = data
+			index = model.index(row, 0)
+			buffersize = model.getBufferSize(index, units)
+			segment, (midlineRb, bufferRb), dlg = model.getAdditionalData(index)
 
 			midlineRb.show() if show else midlineRb.hide()
 			bufferRb.show() if show else bufferRb.hide()
-			if dlg: dlg.hide()
+			if dlg:
+				dlg.hide()
 
 
 	def drawArea(self):
@@ -213,11 +217,11 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		# define buffer width in layer CRS unit
 		if self.canvas.mapUnits() == QGis.Meters:
-			bufferwidth = 100
+			bufferwidth = 100000 # 100 Km
 		elif self.canvas.mapUnits() == QGis.Feet:
-			bufferwidth = 300
+			bufferwidth = 300000 # 300 Kft
 		else:
-			bufferwidth = 1.0
+			bufferwidth = 1.0 # 1 degree
 
 		# append the new classification buffer to the table
 		data = [segment, (midlineRb, bufferRb), None]
@@ -266,8 +270,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			return
 
 		# get item data
-		data = model.data( model.index(row, 0), Qt.UserRole ).toPyObject()
-		segment, (midlineRb, bufferRb), dlg = data
+		segment, (midlineRb, bufferRb), dlg = model.getAdditionalData( model.index(row, 0) )
 
 		# delete the item
 		model.removeRows( row, 1 )
@@ -284,9 +287,8 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		""" re-draw the rubberbands for the classification buffer at index """
 		model = self.buffersTable.model()
 
-		buffersize = model.data( model.index(index.row(), 0) ).toDouble()[0]
-		data = model.data( model.index(index.row(), 0), Qt.UserRole ).toPyObject()
-		segment, (midlineRb, bufferRb), dlg = data
+		buffersize = model.getBufferSize(index, self.canvas.mapUnits())
+		segment, (midlineRb, bufferRb), dlg = model.getAdditionalData(index)
 
 		self.redrawBufferRubberBand(bufferRb, segment, buffersize)
 		self.redrawMidlineRubberBand(midlineRb, segment)
@@ -302,13 +304,13 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self.crossSectionBtn.setEnabled(current.isValid())
 
 		model = self.buffersTable.model()
+		units = self.canvas.mapUnits()
 		for index in (previous, current):
 			if not index.isValid():
 				continue
 
-			buffersize = model.data( model.index(index.row(), 0) ).toDouble()[0]
-			data = model.data( model.index(index.row(), 0), Qt.UserRole ).toPyObject()
-			segment, (midlineRb, bufferRb), dlg = data
+			buffersize = model.getBufferSize(index, units)
+			segment, (midlineRb, bufferRb), dlg = model.getAdditionalData(index)
 
 			midlineRb.setColor(QColor('#88FFFF')) if index == current else midlineRb.setColor(QColor('#00FFFF'))	# color cyan
 			bufferRb.setColor(QColor('#FF88FF')) if index == current else bufferRb.setColor(QColor('#FF00FF'))	# color fuchsia
@@ -339,8 +341,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		# get midline and area geometries for the selected classification buffer
 		model = self.buffersTable.model()
-		data = model.data( model.index(index.row(), 0), Qt.UserRole ).toPyObject()
-		segment, (midlineRb, bufferRb), dlg = data
+		segment, (midlineRb, bufferRb), dlg = model.getAdditionalData(index)
 
 		midlineGeom = midlineRb.asGeometry()
 		bufferGeom = bufferRb.asGeometry()
@@ -360,8 +361,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		# get the depth field index
 		pr = self.vl.dataProvider()
-		from settings_dlg import Settings
-		key2index = Settings.key2indexFieldMap( pr.fields() )
+		key2index = Utils.key2indexFieldMap( pr.fields() )
 		depthIndex =  key2index['depth']
 
 		# the following x and y lists will contain respectively the distance 
@@ -387,7 +387,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			geom = QgsGeometry.fromPoint(geom.asPoint())
 
 			# store distance and depth values
-			x.append( midlineGeom.distance( geom ) )
+			x.append( midlineGeom.distance( geom ) / 1000.0 )	# convert to Km/Kft/Kdegrees
 			y.append( f.attributeMap()[ depthIndex ].toDouble()[0] * -1 )
 			info.append( f.id() )
 
@@ -403,8 +403,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			self.connect(self, SIGNAL("classificationUpdated"), dlg.refresh)
 
 			# store the dialog into the item data
-			data[2] = dlg
-			model.setData( model.index(index.row(), 0), QVariant(data), Qt.UserRole )
+			model.setAdditionalData( index, [segment, (midlineRb, bufferRb), dlg] )
 
 		dlg.setData(x, y, info)
 		dlg.setLabels( "Distance", "Depth" )
@@ -419,7 +418,8 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self._sharedData.clear()
 
 		for row in range(model.rowCount()):
-			dlg = model.data( model.index(row, 0), Qt.UserRole ).toPyObject()[2]
+			
+			dlg = model.getAdditionalData(model.index(row, 0))[2]
 			if not dlg:
 				continue
 
@@ -490,7 +490,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		# fetch and loop through the features
 		inpr.select(self.vl.pendingAllAttributesList(), areaGeom.boundingBox(), True)
 
-		toMapCrsTransform = QgsCoordinateTransform( self.vl.crs(), self.canvas.mapRenderer().destinationCrs() )
+		betweenLayersCrsTransform = QgsCoordinateTransform( self.vl.crs(), outvl.crs() )
 		f = QgsFeature()
 		while inpr.nextFeature( f ):
 			geom = f.geometry()
@@ -505,7 +505,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			classType = self._sharedData[ f.id() ]
 
 			# transform to map CRS
-			if geom.transform( toMapCrsTransform ) != 0:
+			if geom.transform( betweenLayersCrsTransform ) != 0:
 				continue
 			geom = QgsGeometry.fromPoint(geom.asPoint())
 
@@ -525,32 +525,9 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		# because change of extent in provider is not propagated to the layer
 		outvl.updateExtents()
 
-		# set a categorized style
-		from qgis.core import QgsSymbolV2, QgsCategorizedSymbolRendererV2, QgsRendererCategoryV2
-		# create a category for each class
-		categories = []
-
-		# shallow earthquakes in red
-		symbol = QgsSymbolV2.defaultSymbol( QGis.Point )
-		symbol.setColor( QColor( "red" ) )
-		cat = QgsRendererCategoryV2( "shallow", symbol, "shallow" )
-		categories.append( cat )
-
-		# deep earthquakes in blue
-		symbol = QgsSymbolV2.defaultSymbol( QGis.Point )
-		symbol.setColor( QColor( "blue" ) )
-		cat = QgsRendererCategoryV2( "deep", symbol, "deep" )
-		categories.append( cat )
-
-		# create and set the renderer for the layer
-		renderer = QgsCategorizedSymbolRendererV2( "classType", categories )
-		outvl.setRendererV2( renderer )
-
 		# add the layer to the map
-		if hasattr(QgsMapLayerRegistry.instance(), 'addMapLayers'):	# available from QGis >= 1.8
-			QgsMapLayerRegistry.instance().addMapLayers( [ outvl ] )
-		else:
-			QgsMapLayerRegistry.instance().addMapLayer( outvl )
+		LayerStyler.setClassifiedStyle( outvl )
+		Utils.addVectorLayer( outvl )
 
 
 	class BuffersTableModel(QStandardItemModel):
@@ -566,15 +543,16 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 					return QVariant(section+1)
 			return QVariant()
 
-		def append(self, buffersize, data):
-			item = QStandardItem(unicode( buffersize ))
+		def append(self, buffersize, units, data):
+			item = QStandardItem()
 			item.setFlags( item.flags() | Qt.ItemIsEditable )
 
 			self.appendRow( [item] )
 
 			# store the rubberbands as user data
 			row = self.rowCount()-1
-			self.setData(self.index(row, 0), QVariant(data), Qt.UserRole)
+			self.setBufferSize(self.index(row, 0), buffersize, units)
+			self.setAdditionalData(self.index(row, 0), data)
 			return row
 
 		def setData(self, index, data, role=Qt.EditRole):
@@ -582,4 +560,31 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			if role == Qt.EditRole and index.column() == 0:
 				self.emit( SIGNAL("bufferWidthChanged"), index )
 			return ret
+
+
+		def getBufferSize(self, index, units):
+			if index.isValid():
+				displayed_size = self.data( self.index(index.row(), 0) ).toDouble()[0]
+				# convert back to m/ft/degrees
+				if units in [QGis.Meters, QGis.Feet]:
+					return buffersize*1000
+				else:
+					return buffersize
+
+		def setBufferSize(self, index, buffersize, units):
+			if index.isValid():
+				# display Km/Kft/degrees
+				if units in [QGis.Meters, QGis.Feet]:
+					displayed_size = buffersize/1000.0
+				else:
+					displayed_size = buffersize
+				self.setData( self.index(index.row(), 0), QVariant( displayed_size ) )
+
+		def getAdditionalData(self, index):
+			if index.isValid():
+				self.data( self.index(index.row(), 0), Qt.UserRole ).toPyObject()
+
+		def setAdditionalData(self, index, data):
+			if index.isValid():
+				self.setData( self.index(index.row(), 0), QVariant(data), Qt.UserRole )
 
