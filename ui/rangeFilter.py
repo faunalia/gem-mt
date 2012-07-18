@@ -27,12 +27,16 @@ class RangeFilter(QtGui.QWidget):
         super(RangeFilter, self).__init__(*args)
 
         self._createSpinBoxes()
-        self._createSlider()
+        self.connect( self.minSpin, QtCore.SIGNAL("editingFinished()"), self._released )
+        self.connect( self.maxSpin, QtCore.SIGNAL("editingFinished()"), self._released )
 
-        self.setMinimum(0)
-        self.setMaximum(100)
-        self.setLowValue(0)
-        self.setHighValue(100)
+        self._createSlider()
+        self.connect( self.slider, QtCore.SIGNAL("sliderReleased()"), self._released )
+
+        #self.setMinimum( 0 )
+        #self.setLowValue( 0 )
+        #self.setMaximum( 100 )
+        #self.setHighValue( 100 )
 
         self.recreateUi()
 
@@ -44,8 +48,7 @@ class RangeFilter(QtGui.QWidget):
 
     def _createSlider(self):
         self.slider = RangeSlider(self)
-        self.connect( self.slider, QtCore.SIGNAL("lowValueChanged"), self._sliderLowValueChanged )
-        self.connect( self.slider, QtCore.SIGNAL("highValueChanged"), self._sliderHighValueChanged )
+        self.connect( self.slider, QtCore.SIGNAL("sliderMoved(int)"), self._moved )
 
     def recreateUi(self):
         layout = self.layout()
@@ -103,12 +106,20 @@ class RangeFilter(QtGui.QWidget):
     def maximum(self):
         return self.maxSpin.maximum()
 
-    def setMinimum(self, val):
+    def setMinimum(self, value):
+        val = self._getValue( value )
+        if val is None:
+            raise TypeError("invalid type %s" % repr(value))
+
         self.minSpin.setMinimum(val)
         self.maxSpin.setMinimum(val)
         self.slider.setMinimum( self._toSliderValue(val) )
 
-    def setMaximum(self, val):
+    def setMaximum(self, value):
+        val = self._getValue( value )
+        if val is None:
+            raise TypeError("invalid type %s" % repr(value) )
+
         self.minSpin.setMaximum(val)
         self.maxSpin.setMaximum(val)
         self.slider.setMaximum( self._toSliderValue(val) )
@@ -123,7 +134,17 @@ class RangeFilter(QtGui.QWidget):
     def highValue(self):
         return self.maxSpin.value()
 
-    def setLowValue(self, val):
+    def setLowValue(self, value):
+        val = self._getValue( value )
+        if val is None:
+            raise TypeError("invalid type %s" % repr(value) )
+
+        if value < self.minimum():
+            value = self.minimum()
+
+        if value == self.lowValue():
+            return
+
         self.minSpin.blockSignals(True)
         self.slider.blockSignals(True)
         self.minSpin.setValue( val )
@@ -131,9 +152,20 @@ class RangeFilter(QtGui.QWidget):
         self.slider.setLowValue( self._toSliderValue(val) )
         self.minSpin.blockSignals(False)
         self.slider.blockSignals(False)
+
         self.emit( QtCore.SIGNAL("lowValueChanged"), val )
 
-    def setHighValue(self, val):
+    def setHighValue(self, value):
+        val = self._getValue( value )
+        if val is None:
+            raise TypeError("invalid type %s" % repr(value) )
+
+        if value > self.maximum():
+            value = self.maximum()
+
+        if value == self.highValue():
+            return
+
         self.maxSpin.blockSignals(True)
         self.slider.blockSignals(True)
         self.maxSpin.setValue( val )
@@ -141,7 +173,29 @@ class RangeFilter(QtGui.QWidget):
         self.slider.setHighValue( self._toSliderValue(val) )
         self.maxSpin.blockSignals(False)
         self.slider.blockSignals(False)
+
         self.emit( QtCore.SIGNAL("highValueChanged"), val )
+
+
+    def _moved(self, *args):
+        self._sliderLowValueChanged(self.slider.lowValue())
+        self._sliderHighValueChanged(self.slider.highValue())
+        self.emit( QtCore.SIGNAL("valuesChanged"), self.lowValue(), self.highValue() )
+
+    def _released(self, *args):
+        # avoid multiple signals when values don't change
+        if hasattr(self, '_lastLowValueOnReleased') and hasattr(self, '_lastHighValueOnReleased'):
+            if self._lastLowValueOnReleased == self.lowValue() and self._lastHighValueOnReleased == self.highValue():
+                return
+
+        self._lastLowValueOnReleased = self.lowValue()
+        self._lastHighValueOnReleased = self.highValue()
+        # do not emit the signal now, wait the event loop
+        QtCore.QTimer.singleShot(0, self._onChangeFinished)
+
+    def _onChangeFinished(self):
+        self.emit( QtCore.SIGNAL("changeFinished"), self._lastLowValueOnReleased, self._lastHighValueOnReleased )
+
 
     def _sliderLowValueChanged(self, val):
         self.setLowValue( self._fromSliderValue(val) )
@@ -151,13 +205,16 @@ class RangeFilter(QtGui.QWidget):
 
 
     @classmethod
-    def _getValue(self, val):
-        if isinstance(val, QtCore.QVariant): 
-            intval, ok = val.toInt()
-            if val.isValid() and ok:
-                return intval
-            return
-        return val
+    def _getValue(self, value):
+        if not isinstance(value, QtCore.QVariant): 
+            return value
+
+        if not value.isValid(): return
+
+        val, ok = value.toInt()
+        if ok: return val
+
+        return int(float(value.toString()))
 
 
 class DoubleRangeFilter(RangeFilter):
@@ -167,7 +224,6 @@ class DoubleRangeFilter(RangeFilter):
     def _createSpinBoxes(self):
         self.minSpin = QtGui.QDoubleSpinBox(self)
         self.maxSpin = QtGui.QDoubleSpinBox(self)
-
         self.connect( self.minSpin, QtCore.SIGNAL("valueChanged(double)"), self.setLowValue )
         self.connect( self.maxSpin, QtCore.SIGNAL("valueChanged(double)"), self.setHighValue )
 
@@ -178,28 +234,32 @@ class DoubleRangeFilter(RangeFilter):
     def setDecimals(self, val):
         self.minSpin.setDecimals(val)
         self.maxSpin.setDecimals(val)
+
         # update slider min/max and low/high values
         self.slider.setMinimum( self._toSliderValue(self.minimum()) )
-        self.slider.setMaximum( self._toSliderValue(self.maximum()) )
         self.slider.setLowValue( self._toSliderValue(self.minimum()) )
+        self.slider.setMaximum( self._toSliderValue(self.maximum()) )
         self.slider.setHighValue( self._toSliderValue(self.maximum()) )
 
 
     def _toSliderValue(self, val):
-        return val * (10**self.decimals())
+        return round(val * (10**self.decimals()), 0)    # round to the closest integer
 
     def _fromSliderValue(self, val):
         return float(val) / (10**self.decimals())
 
 
     @classmethod
-    def _getValue(self, val):
-        if isinstance(val, QtCore.QVariant): 
-            realval, ok = val.toDouble()
-            if val.isValid() and ok:
-                return realval
-            return
-        return val
+    def _getValue(self, value):
+        if not isinstance(value, QtCore.QVariant): 
+            return value
+
+        if not value.isValid(): return
+
+        val, ok = value.toDouble()
+        if ok: return val
+
+        return float(value.toString())
 
 
 class DateRangeFilter(RangeFilter):
@@ -215,9 +275,9 @@ class DateRangeFilter(RangeFilter):
         self.maxSpin.setCalendarPopup(True)
         self.maxSpin.setDisplayFormat("yyyy.MM.dd")#QtCore.QLocale.system().dateFormat(QtCore.QLocale.ShortFormat))
 
-        minFunc = lambda obj: self._fixupDateTime(obj.minimumDateTime()).toTime_t()
-        maxFunc = lambda obj: self._fixupDateTime(obj.maximumDateTime()).toTime_t()
-        valueFunc = lambda obj: self._fixupDateTime(obj.dateTime()).toTime_t()
+        minFunc = lambda obj: self._fixupDateTime(obj.minimumDateTime())#.toTime_t()
+        maxFunc = lambda obj: self._fixupDateTime(obj.maximumDateTime())#.toTime_t()
+        valueFunc = lambda obj: self._fixupDateTime(obj.dateTime())#.toTime_t()
         setMinFunc = lambda obj, val: obj.setMinimumDateTime( self._convertToDateTime( val ) )
         setMaxFunc = lambda obj, val: obj.setMaximumDateTime( self._convertToDateTime( val ) )
         setValueFunc = lambda obj, val: obj.setDateTime( self._convertToDateTime( val ) )
@@ -239,24 +299,12 @@ class DateRangeFilter(RangeFilter):
         self.connect( self.minSpin, QtCore.SIGNAL("dateChanged(const QDate &)"), self.setLowValue )
         self.connect( self.maxSpin, QtCore.SIGNAL("dateChanged(const QDate &)"), self.setHighValue )
 
-    def minimumDate(self):
-        return self.minSpin.minimumDate()
-
-    def maximumDate(self):
-        return self.maxSpin.maximumDate()
-
-    def lowValueDate(self):
-        return self.minSpin.date()
-
-    def highValueDate(self):
-        return self.maxSpin.date()
-
 
     def _toSliderValue(self, val):
-        return (self._convertToValue( val ) - self.minimum())/3600
+        return (self._convertToValue( val ) - self.minimum().toTime_t()) / 3600
 
     def _fromSliderValue(self, val):
-        return self._convertToValue( val*3600 + self.minimum() )
+        return self._convertToValue( val*3600 + self.minimum().toTime_t() )
 
 
     @classmethod
@@ -270,7 +318,7 @@ class DateRangeFilter(RangeFilter):
         if val.type() == QtCore.QVariant.Int:
             newval, ok = val.toInt()
         elif val.type() in (QtCore.QVariant.Date, QtCore.QVariant.DateTime, QtCore.QVariant.String):
-            newval = val.toDateTime()
+            newval = val.toDate()
             ok = newval.isValid()
 
         if not ok: return
@@ -302,11 +350,12 @@ if __name__ == "__main__":
     import sys
     app = QtGui.QApplication(sys.argv)
 
-    rangeFilter = RangeFilter()
-    rangeFilter.setMinimum(0)
-    rangeFilter.setMaximum(10000)
-    rangeFilter.setLowValue(0)
-    rangeFilter.setHighValue(10000)
+    rangeFilter = DoubleRangeFilter()
+    rangeFilter.setDecimals(1)
+    rangeFilter.setMinimum(-0.3)
+    rangeFilter.setLowValue(-0.3)
+    rangeFilter.setMaximum(7.1)
+    rangeFilter.setHighValue(7.1)
     rangeFilter.setOrientation( QtCore.Qt.Horizontal )
 
     def echo(value):
