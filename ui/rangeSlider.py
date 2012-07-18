@@ -62,7 +62,7 @@ class RangeSlider(QtGui.QSlider):
         self.update()
 
         if self.hasTracking():
-            self.emit(QtCore.SIGNAL('lowValueChanged'), self._low)
+            self.emit(QtCore.SIGNAL('lowValueChanged(int)'), self._low)
 
     def highValue(self):
         return self._high
@@ -77,7 +77,7 @@ class RangeSlider(QtGui.QSlider):
         self.update()
 
         if self.hasTracking():
-            self.emit(QtCore.SIGNAL('highValueChanged'), self._high)
+            self.emit(QtCore.SIGNAL('highValueChanged(int)'), self._high)
         
         
     def paintEvent(self, event):
@@ -326,7 +326,9 @@ if __name__ == "__main__":
 
     def echo(value):
         print value
-    QtCore.QObject.connect(slider, QtCore.SIGNAL('sliderMoved(int)'), echo)
+    #QtCore.QObject.connect(slider, QtCore.SIGNAL('sliderMoved(int)'), echo)
+    QtCore.QObject.connect(slider, QtCore.SIGNAL('lowValueChanged(int)'), echo)
+    QtCore.QObject.connect(slider, QtCore.SIGNAL('highValueChanged(int)'), echo)
 
     slider.show()
     sys.exit(app.exec_())
