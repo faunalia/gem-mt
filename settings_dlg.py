@@ -29,6 +29,15 @@ from qgis.gui import *
 class Settings:
 	@staticmethod
 	def delimiter():
+		if True: # TODO: remove the following hack in version 0.1.0
+			# delimiter type was changed from regexp to plain,
+			# this hack remove the old regexps from settings and returns comma
+			settings = QSettings("/GEM-MT_plugin")
+			delim = settings.value("delimiter", ",").toString()
+			if delim in ['"?,(?!\s)"?', ',(?!\s)']:
+				settings.setValue("delimiter", QVariant(",") )
+				delim = ','
+			return delim
 		return QSettings("/GEM-MT_plugin").value("delimiter", ",").toString()
 
 	@staticmethod
