@@ -2,7 +2,7 @@
 
 """
 /***************************************************************************
-Name			 	 : RangeSlider
+Name                 : RangeSlider
 Description          : A slider for ranges
 Date                 : Jun 20, 2012 
 copyright            : (C) 2012 by Giuseppe Sucameli
@@ -53,6 +53,8 @@ class RangeSlider(QtGui.QSlider):
         return self._low
 
     def setLowValue(self, low):
+        if low < self.minimum():
+            low = self.minimum()
         if low == self._low:
             return
 
@@ -66,6 +68,8 @@ class RangeSlider(QtGui.QSlider):
         return self._high
 
     def setHighValue(self, high):
+        if high > self.maximum():
+            high = self.maximum()
         if high == self._high:
             return
 
@@ -94,15 +98,11 @@ class RangeSlider(QtGui.QSlider):
                 slider_length = gr.width()
                 slider_min = gr.x()
                 slider_max = gr.right() - handle_length + 1
-                opt_rect_setMinPos = opt.rect.setX
-                opt_rect_setLength = opt.rect.setWidth
             else:
                 handle_length = sr.height()
                 slider_length = gr.height()
                 slider_min = gr.y()
                 slider_max = gr.bottom() - handle_length + 1
-                opt_rect_setMinPos = opt.rect.setY
-                opt_rect_setLength = opt.rect.setHeight
 
             #print "min/max", self.minimum(), self.maximum()
             #print "slider", slider_max, slider_min, handle_length
@@ -123,14 +123,14 @@ class RangeSlider(QtGui.QSlider):
                     opt.sliderPosition = self.minimum() + (self.maximum() - value)
 
                     #print "old", opt.rect.x(), opt.rect.width()
-                    opt_rect_setMinPos(slider_min)
-                    opt_rect_setLength(slider_length)
+                    opt.rect.setX(slider_min)
+                    opt.rect.setWidth(slider_length)
                     #print "new", opt.rect.x(), opt.rect.width()
 
                 else:
                     #print "old", opt.rect.y(), opt.rect.height()
-                    opt_rect_setMinPos(slider_min)
-                    opt_rect_setLength(slider_length)
+                    opt.rect.setY(slider_min)
+                    opt.rect.setHeight(slider_length)
                     #print "new", opt.rect.y(), opt.rect.height()
 
                 #print "opt", opt.sliderValue, opt.sliderPosition, opt.upsideDown
@@ -152,8 +152,8 @@ class RangeSlider(QtGui.QSlider):
 
                     #print "pos", pos
                     #print "old", opt.rect.x(), opt.rect.width()
-                    opt_rect_setMinPos(pos + 3)
-                    opt_rect_setLength(slider_max - pos + handle_length - 3)
+                    opt.rect.setX(pos + 3)
+                    opt.rect.setWidth(slider_max - pos + handle_length - 3)
                     #print "new", opt.rect.x(), opt.rect.width()
 
                 else:
@@ -165,8 +165,8 @@ class RangeSlider(QtGui.QSlider):
 
                     #print "pos", pos
                     #print "old", opt.rect.y(), opt.rect.height()
-                    opt_rect_setMinPos(slider_min-1)
-                    opt_rect_setLength(slider_min + slider_length - pos - 2)
+                    opt.rect.setY(slider_min-1)
+                    opt.rect.setHeight(slider_min + slider_length - pos - 2)
                     #print "new", opt.rect.y(), opt.rect.height()
 
                 #print "opt", opt.sliderValue, opt.sliderPosition, opt.upsideDown
@@ -225,8 +225,17 @@ class RangeSlider(QtGui.QSlider):
                 self.click_offset = self.__pixelPosToRangeValue(self.__pick(event.pos()))
                 self.triggerAction(self.SliderMove)
                 self.setRepeatAction(self.SliderNoAction)
+                self.setSliderDown(True)
         else:
             event.ignore()
+
+    def mouseReleaseEvent(self, event):
+        if self.pressed_control != QtGui.QStyle.SC_SliderHandle:
+            event.ignore()
+            return
+
+        self.setSliderDown(False)
+        return QtGui.QSlider.mouseReleaseEvent(self, event)
                                 
     def mouseMoveEvent(self, event):
         if self.pressed_control != QtGui.QStyle.SC_SliderHandle:
@@ -259,12 +268,12 @@ class RangeSlider(QtGui.QSlider):
             self.setHighValue( new_high )
 
         elif self.active_slider < 0:
-            if new_pos >= self._high:
+            if new_pos > self._high:
                 new_pos = self._high
             self.setLowValue( new_pos )
 
         else:
-            if new_pos <= self._low:
+            if new_pos < self._low:
                 new_pos = self._low
             self.setHighValue( new_pos )
 
@@ -296,9 +305,9 @@ class RangeSlider(QtGui.QSlider):
             slider_min = gr.y() + handle_length/2
             slider_max = gr.bottom() - handle_length/2 + 1
             
-        return style.sliderValueFromPosition(self.minimum(), self.maximum(),
-                                             pos-slider_min, slider_max - slider_min,
-                                             opt.upsideDown)
+        return self.minimum() + style.sliderValueFromPosition(0, self.maximum()-self.minimum(),
+                                            pos-slider_min, slider_max - slider_min,
+                                            opt.upsideDown)
 
 
 if __name__ == "__main__":
@@ -312,12 +321,12 @@ if __name__ == "__main__":
     slider.setHighValue(100)
     slider.setOrientation( QtCore.Qt.Horizontal )
 
-	# TODO: fix handles' positioning while appearance is inverted
+    # TODO: fix handles' positioning while appearance is inverted
     #slider.setInvertedAppearance( True )
 
-    #def echo(value):
-    #    print value
-    #QtCore.QObject.connect(slider, QtCore.SIGNAL('sliderMoved(int)'), echo)
+    def echo(value):
+        print value
+    QtCore.QObject.connect(slider, QtCore.SIGNAL('sliderMoved(int)'), echo)
 
     slider.show()
     sys.exit(app.exec_())
