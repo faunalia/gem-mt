@@ -23,6 +23,9 @@ email                : brush.tyler@gmail.com
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+from qgis.core import QGis, QgsVectorLayer
+from utils import Utils, LayerStyler
+
 import resources_rc
 
 class GEM_MT_Plugin:
@@ -32,6 +35,7 @@ class GEM_MT_Plugin:
 		self.toolbar = None
 
 		self.vl = None
+		self.basemapVl = None
 		self.filterDock = None
 		self.classificationDock = None
 
@@ -39,6 +43,9 @@ class GEM_MT_Plugin:
 		# create the actions
 		self.loadCsvAction = QAction( "Load CSV file", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/loadCsv.png" )
 		QObject.connect( self.loadCsvAction, SIGNAL( "triggered()" ), self.loadCsv )
+
+		self.useActiveLayerAction = QAction( "Use active layer", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/useActiveLayer.png" )
+		QObject.connect( self.useActiveLayerAction, SIGNAL( "triggered()" ), self.useActiveLayer )
 
 		self.plotStatsAction = QAction( "Plot statistics", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/plotStats.png" )
 		self.plotStatsAction.setCheckable(True)
@@ -60,9 +67,11 @@ class GEM_MT_Plugin:
 
 		# add actions to toolbars and menus
 		self.toolbar.addAction( self.loadCsvAction )
+		self.toolbar.addAction( self.useActiveLayerAction )
 		self.toolbar.addAction( self.plotStatsAction )
 		self.toolbar.addAction( self.classificationAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.loadCsvAction )
+		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.useActiveLayerAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.plotStatsAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.classificationAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.settingsAction )
@@ -80,9 +89,11 @@ class GEM_MT_Plugin:
 
 		# remove actions from toolbars and menus
 		self.toolbar.removeAction( self.loadCsvAction )
+		self.toolbar.removeAction( self.useActiveLayerAction )
 		self.toolbar.removeAction( self.plotStatsAction )
 		self.toolbar.removeAction( self.classificationAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.loadCsvAction )
+		self.iface.removePluginMenu( "&GEM-MT Plugin", self.useActiveLayerAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.plotStatsAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.classificationAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.settingsAction )
@@ -91,6 +102,7 @@ class GEM_MT_Plugin:
 		# delete the custom toolbar
 		self.toolbar.deleteLater()
 		self.toolbar = None
+
 
 	def about(self):
 		""" display the about dialog """
@@ -112,65 +124,117 @@ class GEM_MT_Plugin:
 		if filename.isEmpty():
 			return	# cancel clicked
 
-		# create the uri for the delimitedtext provider
-		from .settings_dlg import Settings
-		url = QUrl.fromLocalFile( filename )
-		url.setQueryItems( [
-			( "delimiter", Settings.delimiter() ),
-			( "delimiterType", "regexp"),
-			( "xField", Settings.longitudeField() ),
-			( "yField", Settings.latitudeField() )
-		] )
+		# unset the render flag
+		prev_render_flag = self.iface.mapCanvas().renderFlag()
+		self.iface.mapCanvas().setRenderFlag( False )
 
-		# layer base name and path to style file
-		baseName = QFileInfo(filename).baseName()
-		dir_path = QFileInfo(filename).absoluteDir()
-		style_path = dir_path.absoluteFilePath( u"%s.qml" % baseName )
+		# set the waiting cursor
+		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+		try:
+			# import CSV file to SL database
+			from importer import CsvToSL
+			importer = CsvToSL(filename, self.iface.mainWindow())
+			retCode, vl = importer.run()
+			importer.deleteLater()
+			del importer
+
+			# ret code check
+			if vl is None or retCode != CsvToSL.OK:
+				if retCode == CsvToSL.INVALID_LATLON:
+					self.settings()	# show the settings dialog
+				return
+			
+			# ok, the new layer can be used with the plugin
+			# remove the previous loaded layer, then store the new one
+			self.removeLayer()
+			self.setLayer(vl)
+
+			# add the basemap layer, then the new layer
+			self.addBasemapLayer()
+			Utils.addVectorLayer(self.vl)
+
+		finally:
+			# restore the cursor and render flag state
+			QApplication.restoreOverrideCursor()
+			self.iface.mapCanvas().setRenderFlag( prev_render_flag )
+
+
+	def addBasemapLayer(self):
+		if self.basemapVl:
+			return # already added
+
+		current_dir = QFileInfo(__file__).absoluteDir()
+		basemap = current_dir.absoluteFilePath( u"data/basemap/Countries.shp" )
+
+		# load the basemap layer
+		vl = QgsVectorLayer(basemap, QFileInfo(basemap).baseName(), "ogr")
+		if not vl.isValid():
+			vl.deleteLater()
+			return
+
+		# add the basemap layer to canvas
+		LayerStyler.setBasemapStyle(vl)
+		self.basemapVl = vl
+		QObject.connect( self.basemapVl, SIGNAL("layerDeleted()"), self.basemapLayerDestroyed )
+		Utils.addVectorLayer(vl)
+
+	def basemapLayerDestroyed(self):
+		self.basemapVl = None
+
+
+	def useActiveLayer(self):
+		vl = self.iface.activeLayer()
+		if not vl:
+			QMessageBox.warning( self.iface.mainWindow(), "Invalid layer", u"No point layer selected." )
+			return
+
+		if vl.geometryType() != QGis.Point:
+			QMessageBox.warning( self.iface.mainWindow(), "Invalid layer", u"The selected layer is not a Point layer." )
+			return
 
 		# store the current render flag state, then unset it
 		prev_render_flag = self.iface.mapCanvas().renderFlag()
 		self.iface.mapCanvas().setRenderFlag( False )
 
+		# set the waiting cursor
+		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
 		try:
-			from qgis.core import QGis, QgsVectorLayer, QgsMapLayerRegistry
-
-			# load the layer
-			vl = QgsVectorLayer(url.toString(), baseName, "delimitedtext")
-			if not vl.isValid():	# invalid layer
-				QMessageBox.warning( self.iface.mainWindow(), "Invalid layer", u"Unable to load the layer %s" % url.toString() )
-				return
-
-			if vl.geometryType() != QGis.Point:
-				QMessageBox.warning( self.iface.mainWindow(), "Invalid CSV data", u"Unable to get data from the selected file. Setup Lat/Long field names and delimiter from the Settings dialog and then try again." )
-				self.settings()
-				return
-
-			# set the layer style
-			dir_path = QFileInfo(filename).absoluteDir()
-			style_path = dir_path.absoluteFilePath( u"%s.qml" % baseName )
-			vl.loadNamedStyle( style_path )
-
-			# destroy the filter dock if any, then remove the previous loaded layer
-			self.destroyFilterDock()
-			if self.vl:
-				QObject.disconnect( self.vl, SIGNAL("layerDeleted()"), self.layerDestroyed )
-				QgsMapLayerRegistry.instance().removeMapLayer( self.vl.id() )
-				self.vl = None
-
-			# add the new layer to the map, then create a new filter dock
-			if hasattr(QgsMapLayerRegistry.instance(), 'addMapLayers'):	# available from QGis >= 1.8
-				QgsMapLayerRegistry.instance().addMapLayers( [ vl ] )
-			else:
-				QgsMapLayerRegistry.instance().addMapLayer( vl )
-			self.vl = vl
-
-			self.plotStatsAction.setChecked(True)
-
+			# remove the previous loaded layer, then store the new one
+			self.removeLayer()
+			self.setLayer(vl)
+			# add the base map
+			self.addBasemapLayer()
 		finally:
-			# restore the render flag state
+			# restore cursor and render flag state
+			QApplication.restoreOverrideCursor()
 			self.iface.mapCanvas().setRenderFlag( prev_render_flag )
 
+
+	def setLayer(self, vl):
+		""" set the layer as the current one used by the plugin """
+		# store the new layer
+		LayerStyler.setEarthquakesStyle(vl)
+		self.vl = vl
 		QObject.connect( self.vl, SIGNAL("layerDeleted()"), self.layerDestroyed )
+
+		# enable the filter/plot panel
+		self.plotStatsAction.setChecked(True)
+
+	def removeLayer(self):
+		if self.vl:
+			# destroy the filter/plot and classification panels
+			self.destroyFilterDock()
+			self.destroyClassificationDock()
+
+			QObject.disconnect( self.vl, SIGNAL("layerDeleted()"), self.layerDestroyed )
+			#QgsMapLayerRegistry.instance().removeMapLayer( self.vl.id() )
+			self.vl = None
+
+	def layerDestroyed(self):
+		self.destroyFilterDock()
+		self.destroyClassificationDock()
+		self.vl = None
+
 
 
 	def displayFilterDock(self):
@@ -246,47 +310,3 @@ class GEM_MT_Plugin:
 			self.classificationDock.deleteLater()
 			self.classificationDock = None
 
-
-	def layerDestroyed(self):
-		self.destroyFilterDock()
-		self.destroyClassificationDock()
-		self.vl = None
-
-
-
-	def defineArea(self):
-		if not self.classificationAction.isChecked():
-			return
-
-		if not self.vl:
-			QMessageBox.warning( self.iface.mainWindow(), "No layer loaded", u"Load a CSV layer and then try again." )
-			self.classificationAction.setChecked(False)
-			return
-
-		if not self.areaDrawer:
-			from MapTools import PolygonDrawer
-			self.areaDrawer = PolygonDrawer(self.iface.mapCanvas(), {'color':QColor('black'), 'border':2, 'enableSnap':False, 'keepAfterEnd':True})
-			self.areaDrawer.setAction( self.classificationAction )
-
-		self.areaDrawer.startCapture()
-	
-	def createBufferMidline(self):
-		if not self.createBufferMidlineAction.isChecked():
-			return
-
-		if not self.vl:
-			QMessageBox.warning( self.iface.mainWindow(), "No layer loaded", u"Load a CSV layer and then try again." )
-			self.createBufferMidlineAction.setChecked(False)
-			return
-
-		if not self.areaDrawer or not self.areaDrawer.isValid():
-			QMessageBox.warning( self.iface.mainWindow(), "Missing Area of Interest", u"Define an Area of Interest and then try again." )
-			self.createBufferMidlineAction.setChecked(False)
-			return			
-
-		if not self.segmentDrawer:
-			from MapTools import SegmentDrawer
-			self.segmentDrawer = SegmentDrawer(self.iface.mapCanvas(), {'color':QColor('aqua'), 'border':2, 'enableSnap':False, 'keepAfterEnd':True})
-			self.segmentDrawer.setAction( self.createBufferMidlineAction )
-
-		self.segmentDrawer.startCapture()
