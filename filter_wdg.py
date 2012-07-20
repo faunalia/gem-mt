@@ -281,8 +281,9 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		finally:
 			QApplication.restoreOverrideCursor()
 
-		dlg.show()
-		dlg.exec_()
+		if dlg:
+			dlg.show()
+			dlg.exec_()
 
 
 	def _createPlotDlg(self):
