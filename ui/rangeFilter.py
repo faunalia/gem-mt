@@ -90,7 +90,8 @@ class RangeFilter(QtGui.QWidget):
 
     def checkValue(self, val):
         val = self._getValue(val)
-        return val is not None and val >= self.lowValue() and val <= self.highValue()
+        if val is None: return False
+        return val >= self._getValue( self.lowValue() ) and val <= self._getValue( self.highValue() )
 
 
     def _toSliderValue(self, val):
