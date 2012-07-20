@@ -161,36 +161,34 @@ class PlotWdg(FigureCanvasQTAgg):
 		if not isinstance(val, QtCore.QVariant):
 			return val
 
-		def convertToDate( s ):
-			try:
-				return datetime.strptime(unicode(s), '%Y-%m-%d %H:%M:%S')
-			except ValueError:
-				pass
-
-			return datetime.strptime(unicode(s), '%Y-%m-%d')
-
 		if val.type() == QtCore.QVariant.Int:
 			return val.toInt()[0]
 		elif val.type() == QtCore.QVariant.Double:
 			return val.toDouble()[0]
-
-		if val.type() == QtCore.QVariant.Date:
-			return convertToDate( val.toDate().toString("yyyy-MM-dd") )
-
+		elif val.type() == QtCore.QVariant.Date:
+			return val.toDate().toPyDate()
 		elif val.type() == QtCore.QVariant.DateTime:
-			return convertToDate( val.toDateTime().toString("yyyy-MM-dd hh:mm:ss") )
+			return val.toDateTime().toPyDateTime()
 
-		s = val.toString()
-		# try to convert the string to a date
+		# try to convert the value to a date
+		s = unicode(val.toString())
 		try:
-			return convertToDate( s )
+			return datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
+		except ValueError:
+			pass
+		try:
+			return datetime.strptime(s, '%Y-%m-%d')
 		except ValueError:
 			pass
 
-		if val.canConvert(QtCore.QVariant.Double):
-			return val.toDouble()[0]
-		elif val.canConvert(QtCore.QVariant.Int):
-			return val.toInt()[0]
+		v, ok = val.toDouble()
+		if ok: return v
+		v, ok = val.toInt()
+		if ok: return v
+		v = val.toDateTime()
+		if v.isValid(): return v.toPyDateTime()
+		v = val.toDate()
+		if v.isValid(): return v.toPyDate()
 
 		return unicode(s)
 
