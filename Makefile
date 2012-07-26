@@ -20,5 +20,10 @@ $(RC_FILES): %_rc.py: %.qrc
 clean:
 	rm -f $(GEN_FILES) *.pyc
 
+
+PLUGIN_DIR=$(CURDIR) 
+PLUGIN_NAME=`basename $(CURDIR)`
+
 package:
-	make all && cd .. && rm -f gem_mt.zip && zip -r gem_mt.zip gem_mt -x \*.svn* -x \*.pyc -x \*~ -x \*entries\* -x \*.git\*
+	make all && cd .. && rm -f $(PLUGIN_NAME).zip && zip -r $(PLUGIN_NAME).zip $(PLUGIN_NAME) -x \*.svn* -x \*.pyc -x \*~ -x \*entries\* -x \*.git\* -x \*.skip\* && cd $(PLUGIN_NAME)
+
