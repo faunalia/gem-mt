@@ -197,8 +197,8 @@ def kijko_nonparametric_gauss(mag, mag_sig, neq,
         obsmaxsig = mag_sig[np.argmax(mag)]
 
     else:
-        obsmaxsig = obsmax[1]
-        obsmax = obsmax[0]
+        obsmaxsig = max_observed[1]
+        obsmax = max_observed[0]
 
     #neq = np.shape(mag)[0]
     # Find number_eqs largest events
