@@ -27,43 +27,21 @@ from qgis.core import *
 from qgis.gui import *
 
 from utils import Utils
-
-class FilterDock(QDockWidget):
-	def __init__(self, iface, vl, parent=None):
-		QDockWidget.__init__(self, parent)
-
-		self.mainWidget = FilterWdg(iface, vl, self)
-		self.setupUi()
-
-	def deleteLater(self, *args):
-		self.mainWidget.deleteLater()
-		return QDockWidget.deleteLater(self, *args)
-
-	def closeEvent(self, event):
-		self.mainWidget.onClosing()
-		self.emit( SIGNAL( "closed" ), self )
-		return QDockWidget.closeEvent(self, event)
-
-	def setupUi(self):
-		self.setWindowTitle( "Filter/Plot panel" )
-		self.setObjectName( "gem_mt_filter_dockwidget" )
-		self.setWidget( self.mainWidget )
-
+from MapTools import PolygonDrawer
 
 from ui.filterWdg_ui import Ui_FilterWdg
-from MapTools import PolygonDrawer
 
 class FilterWdg(QWidget, Ui_FilterWdg):
 
 	PLOT_HIST, PLOT_HIST_LOG, PLOT_SCATTER = range(3)
 
-	def __init__(self, iface, vl, parent=None):
+	def __init__(self, iface, parent=None):
 		QWidget.__init__(self, parent)
 		self.setupUi(self)
 
-		# store the passed vars
+		# store the iface and the event layer
 		self.iface = iface
-		self.vl = vl
+		self.vl = Utils.eventsVl()
 
 		self.canvas = self.iface.mapCanvas()
 		self._prevMapTool = None
@@ -72,7 +50,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.setupFilters()
 
 		# create the maptool to draw polygons
-		self.polygonDrawer = PolygonDrawer( self.canvas, {'color':QColor("black"), 'enableSnap':False, 'keepAfterEnd':True} )
+		self.polygonDrawer = PolygonDrawer( self.canvas, {'color':QColor("#666666"), 'enableSnap':False, 'keepAfterEnd':True} )
 		self.polygonDrawer.setAction( self.drawPolygonBtn )
 		self.connect(self.polygonDrawer, SIGNAL("geometryEmitted"), self.polygonCreated)
 
@@ -107,11 +85,12 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 	def showEvent(self, event):
 		self.showRubberBands(True)
-		return QWidget.showEvent(self, event)
+		QWidget.showEvent(self, event)
 
-	def onClosing(self):
+	def hideEvent(self, event):
 		self.showRubberBands(False)
 		self.restorePrevMapTool()
+		QWidget.hideEvent(self, event)
 
 
 	def deleteLater(self, *args):
@@ -160,13 +139,13 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.dateRangeFilter.setEnabled(False)
 		self.dateRangeFilter.setOrientation( Qt.Horizontal )
 
-		# take min/max values index from the data provider
-		# let's reset the subset string to get real min/max
+		# take min/max values index from the data provider,
+		# buf first let's reset the subset string to get real min/max
 		pr = self.vl.dataProvider()
 		pr.setSubsetString("")
 
-		key2indexFieldMap = Utils.key2indexFieldMap( pr.fields() )
-		for key, index in key2indexFieldMap.iteritems():
+		key2index = Utils.key2indexFieldMap( pr.fields() )
+		for key, index in key2index.iteritems():
 			filterWdg = self._filterForKey( key )
 			if not filterWdg:
 				continue
@@ -216,11 +195,11 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 	def updateMap(self, *args):
 		pr = self.vl.dataProvider()
-		key2indexFieldMap = Utils.key2indexFieldMap( pr.fields() )
+		key2index = Utils.key2indexFieldMap( pr.fields() )
 
 		# convert filters to subset string
 		subsets = []
-		for key, index in key2indexFieldMap.iteritems():
+		for key, index in key2index.iteritems():
 			filterWdg = self._filterForKey( key )
 			if not filterWdg or not filterWdg.isActive():
 				continue
@@ -274,6 +253,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		# restore the previous maptool
 		self.restorePrevMapTool()
 
+
 	def createPlot(self):
 		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
 		try:
@@ -284,6 +264,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		if dlg:
 			dlg.show()
 			dlg.exec_()
+			dlg.deleteLater()
 
 
 	def _createPlotDlg(self):
@@ -295,6 +276,12 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		if not spatialFilter:
 			extent = QgsRectangle()
 		else:
+			# convert the spatial filter to the layer CRS
+			toLayerCrsTransform = QgsCoordinateTransform( self.canvas.mapRenderer().destinationCrs(), self.vl.crs() )
+			ret = spatialFilter.transform( toLayerCrsTransform )
+			if ret != 0:
+				QMessageBox.warning(self, "Invalid area", "Unable to tranform the selected area to the layer CRS.")
+				return
 			extent = spatialFilter.boundingBox()
 
 		# get the indexes of fields selected in the combos
@@ -302,7 +289,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		yIndex = self.yAxisCombo.itemData( self.yAxisCombo.currentIndex() ).toInt()[0]
 
 		pr = self.vl.dataProvider()
-		index2keyFieldMap = Utils.index2keyFieldMap( pr.fields() )
+		index2key = Utils.index2keyFieldMap( pr.fields() )
 
 		indexes = []
 		for index, fld in pr.fields().iteritems():
@@ -328,7 +315,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		f = QgsFeature()
 		while pr.nextFeature( f ):
 			# filter features by spatial filter
-			if spatialFilter and not spatialFilter.intersects( f.geometry() ):
+			if spatialFilter and not spatialFilter.contains( f.geometry() ):
 				continue
 
 			# filter features by attribute values
@@ -336,10 +323,10 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 			ok = True
 			for index, val in attrs.iteritems():
-				if not index2keyFieldMap.has_key( index ):
+				if not index2key.has_key( index ):
 					continue	# unused field
 
-				filterWdg = self._filterForKey( index2keyFieldMap[ index ] )
+				filterWdg = self._filterForKey( index2key[ index ] )
 				if not filterWdg:
 					continue	# the field has no associated filter widget
 
@@ -361,14 +348,13 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 		from plot_wdg import HistogramPlotDlg, ScatterPlotDlg
 		if plotType == self.PLOT_HIST:
-			dlg = HistogramPlotDlg([x], [self.xAxisCombo.currentText(), "Frequency"], self.titleEdit.text())
+			dlg = HistogramPlotDlg(None, [x], [self.xAxisCombo.currentText(), "Frequency"], self.titleEdit.text())
 		elif plotType == self.PLOT_HIST_LOG:
-			dlg = HistogramPlotDlg([x], [self.xAxisCombo.currentText(), "log10(Frequency)"], self.titleEdit.text(), {'yscale':'log'})
+			dlg = HistogramPlotDlg(None, [x], [self.xAxisCombo.currentText(), "Frequency"], self.titleEdit.text(), {'yscale':'log'})
 		elif plotType == self.PLOT_SCATTER:
-			dlg = ScatterPlotDlg([x, y], [self.xAxisCombo.currentText(), self.yAxisCombo.currentText()], self.titleEdit.text())
+			dlg = ScatterPlotDlg(None, [x, y], [self.xAxisCombo.currentText(), self.yAxisCombo.currentText()], self.titleEdit.text())
 		else:
 			return
 
-		#dlg.setParent(self.iface.mainWindow())
 		return dlg
 

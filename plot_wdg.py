@@ -65,7 +65,7 @@ class PlotWdg(FigureCanvasQTAgg):
 	def itemAt(self, index):
 		if index >= len(self.x):
 			return None
-		return (self.x[index] if self.x else None, self.y[index] if self.y else None, self.info[index] if self.info else None)
+		return (self.x[index] if self.x else None, self.y[index] if self.y else None)
 
 
 	def delete(self):
@@ -109,8 +109,9 @@ class PlotWdg(FigureCanvasQTAgg):
 
 
 	def setData(self, x, y=None, info=None):
-		self.x, self.y = x or [], y or []
-		self.info = info or []
+		self.x = x if x is not None else []
+		self.y = y if y is not None else []
+		self.info = info if info is not None else []
 		self._dirty = True
 
 	def setTitle(self, title):
@@ -130,11 +131,41 @@ class PlotWdg(FigureCanvasQTAgg):
 		self.collections = []
 
 	def _plot(self):
-		pass
+		# convert values, then create the plot
+		x = map(PlotWdg._valueFromQVariant, self.x)
+		y = map(PlotWdg._valueFromQVariant, self.y)
+
+		items = self._callPlotFunc('plot', x, y)
+		self.collections.append( items )
 
 
-	@staticmethod
-	def _setAxisDateFormatter(axis, data):
+	def _callPlotFunc(self, plotfunc, x, y=None, **kwargs):
+		is_x_date = isinstance(x[0], datetime) if len(x) > 0 else False
+		is_y_date = isinstance(y[0], datetime) if y is not None and len(y) > 0 else False
+
+		if is_x_date: 
+			self._setAxisDateFormatter( self.axes.xaxis, x )
+			x = date2num(x)
+		if is_y_date:
+			self._setAxisDateFormatter( self.axes.yaxis, y )
+			y = date2num(y)
+
+		if y is not None:
+			items = getattr(self.axes, plotfunc)(x, y, **kwargs)
+		else:
+			n, bins, patches = getattr(self.axes, plotfunc)(x, **kwargs)
+			items = patches
+
+
+		if is_x_date: 
+			self.fig.autofmt_xdate()
+		#if is_y_date:
+		#	self.fig.autofmt_ydate()
+
+		return items
+
+	@classmethod
+	def _setAxisDateFormatter(self, axis, data):
 		timedelta = max(data) - min(data)
 		if timedelta.days > 365*5:
 			axis.set_major_formatter( DateFormatter('%Y') )
@@ -202,15 +233,8 @@ class HistogramPlotWdg(PlotWdg):
 		# convert values, then create the plot
 		x = map(PlotWdg._valueFromQVariant, self.x)
 
-		if isinstance(x[0], datetime): 
-			self._setAxisDateFormatter( self.axes.xaxis, x )
-			n, bins, patches = self.axes.hist(date2num(x), bins=50)
-			self.fig.autofmt_xdate()
-
-		else:
-			n, bins, patches = self.axes.hist(x, bins=50)
-
-		self.collections.append( patches )
+		items = self._callPlotFunc('hist', x, bins=50)
+		self.collections.append( items )
 
 
 class ScatterPlotWdg(PlotWdg):
@@ -223,37 +247,18 @@ class ScatterPlotWdg(PlotWdg):
 		x = map(PlotWdg._valueFromQVariant, self.x)
 		y = map(PlotWdg._valueFromQVariant, self.y)
 
-		if isinstance(x[0], datetime) and isinstance(y[0], datetime):
-			self._setAxisDateFormatter( self.axes.xaxis, x )
-			self._setAxisDateFormatter( self.axes.yaxis, y )
-			items = self.axes.scatter(date2num(x), date2num(y))
-			self.fig.autofmt_xdate()
-			self.fig.autofmt_ydate()
-
-		elif isinstance(x[0], datetime):
-			self._setAxisDateFormatter( self.axes.xaxis, x )
-			items = self.axes.plot_date(x, y)
-			self.fig.autofmt_xdate()
-
-		elif isinstance(y[0], datetime): 
-			self._setAxisDateFormatter( self.axes.xaxis, x )
-			items = self.axes.scatter(x, date2num(y))
-			self.fig.autofmt_ydate()
-
-		else:
-			items = self.axes.scatter(x, y)
-
+		items = self._callPlotFunc('scatter', x, y)
 		self.collections.append( items )
 
 
 class PlotDlg(QtGui.QDialog):
-	def __init__(self, *args, **kwargs):
-		QtGui.QDialog.__init__(self, kwargs.get('parent', None), QtCore.Qt.Window)
+	def __init__(self, parent, *args, **kwargs):
+		QtGui.QDialog.__init__(self, parent, QtCore.Qt.Window)
 		self.setWindowTitle("Plot dialog")
 
 		layout = QtGui.QVBoxLayout(self)
 
-		self.plot = self.createPlot()
+		self.plot = self.createPlot(*args, **kwargs)
 		layout.addWidget(self.plot)
 
 		self.nav = self.createToolBar()
@@ -268,8 +273,8 @@ class PlotDlg(QtGui.QDialog):
 		self.nav.unset_cursor()
 		return QtGui.QDialog.leaveEvent(self, event)
 
-	def createPlot(self):
-		raise ValueError("invalid or missing plot type")
+	def createPlot(self, *args, **kwargs):
+		return PlotWdg(*args, **kwargs)
 
 	def createToolBar(self):
 		return NavigationToolbar(self.plot, self)
@@ -283,8 +288,8 @@ class PlotDlg(QtGui.QDialog):
 			# refresh if it's already visible
 			self.plot.refreshData()
 
-	def setData(self, x, y, data=None):
-		self.plot.setData(x, y, data)
+	def setData(self, x, y=None, info=None):
+		self.plot.setData(x, y, info)
 
 	def setTitle(self, title):
 		self.plot.setTitle(title)
@@ -296,19 +301,17 @@ class PlotDlg(QtGui.QDialog):
 
 class HistogramPlotDlg(PlotDlg):
 	def __init__(self, *args, **kwargs):
-		self._args, self._kwargs = args, kwargs
-		PlotDlg.__init__(self, parent=kwargs.get('parent', None))
+		PlotDlg.__init__(self, *args, **kwargs)
 
-	def createPlot(self):
-		return HistogramPlotWdg(*self._args, **self._kwargs)
+	def createPlot(self, *args, **kwargs):
+		return HistogramPlotWdg(*args, **kwargs)
 
 class ScatterPlotDlg(PlotDlg):
 	def __init__(self, *args, **kwargs):
-		self._args, self._kwargs = args, kwargs
-		PlotDlg.__init__(self, parent=kwargs.get('parent', None))
+		PlotDlg.__init__(self, *args, **kwargs)
 
-	def createPlot(self):
-		return ScatterPlotWdg(*self._args, **self._kwargs)
+	def createPlot(self, *args, **kwargs):
+		return ScatterPlotWdg(*args, **kwargs)
 
 
 class CrossSectionDlg(PlotDlg):
@@ -351,7 +354,9 @@ class CrossSectionDlg(PlotDlg):
 			point = self.plot.itemAt(index)
 			if not point:
 				continue
-			px, py, info = point
+
+			px, py = point
+			info = self.plot.info[index]
 
 			if py > hy:
 				shallow.append( info )
@@ -651,21 +656,24 @@ class ClippedLine2D(Line2D):
 
 			if x0 == x1:	# vertical
 				x, y = (x0, x0), ylim
-			elif y0 == y1:
+			elif y0 == y1:	# horizontal
 				x, y = xlim, (y0, y0)
 			else:
+				# coeff != 0
 				coeff = float(y1 - y0) / (x1 - x0)
+
 				minx = (ylim[0] - y0) / coeff + x0
 				maxx = (ylim[1] - y0) / coeff + x0
 				miny = coeff * (xlim[0] - x0) + y0
 				maxy = coeff * (xlim[1] - x0) + y0
 
-				# swap values if in the wrong position (coeff < 0)
-				if minx > maxx : minx, maxx = maxx, minx
-				if miny > maxy : miny, maxy = maxy, miny
+				if coeff > 0:
+					x = max(minx, xlim[0]), min(maxx, xlim[1])
+					y = max(miny, ylim[0]), min(maxy, ylim[1])
+				else:
+					x = max(maxx, xlim[0]), min(minx, xlim[1])
+					y = min(miny, ylim[1]), max(maxy, ylim[0])
 
-				x = min(maxx, xlim[1]), max(minx, xlim[0])
-				y = max(miny, ylim[0]), min(maxy, ylim[1])
 
 			self.set_data(x, y)
 

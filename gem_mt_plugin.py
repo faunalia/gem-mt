@@ -23,21 +23,25 @@ email                : brush.tyler@gmail.com
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from qgis.core import QGis, QgsVectorLayer
+from qgis.core import QGis, QgsVectorLayer, QgsField
 from utils import Utils, LayerStyler
 
 import resources_rc
 
 class GEM_MT_Plugin:
 
+	instance = None
+
 	def __init__(self, iface):
+		GEM_MT_Plugin.instance = self
+
 		self.iface = iface
 		self.toolbar = None
+		self.dock = None
 
 		self.vl = None
 		self.basemapVl = None
-		self.filterDock = None
-		self.classificationDock = None
+		self.classifiedVl = None
 
 	def initGui(self):
 		# create the actions
@@ -49,11 +53,15 @@ class GEM_MT_Plugin:
 
 		self.plotStatsAction = QAction( "Plot statistics", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/plotStats.png" )
 		self.plotStatsAction.setCheckable(True)
-		QObject.connect( self.plotStatsAction, SIGNAL( "toggled(bool)" ), self.displayFilterDock )
+		QObject.connect( self.plotStatsAction, SIGNAL( "triggered()" ), self.displayFilterPanel )
 
 		self.classificationAction = QAction( "Classification", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/classification.png" )
 		self.classificationAction.setCheckable(True)
-		QObject.connect( self.classificationAction, SIGNAL( "toggled(bool)" ), self.displayClassificationDock )
+		QObject.connect( self.classificationAction, SIGNAL( "triggered()" ), self.displayClassificationPanel )
+
+		self.routinesAction = QAction( "Processing", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/processing.png" )
+		self.routinesAction.setCheckable(True)
+		QObject.connect( self.routinesAction, SIGNAL( "triggered()" ), self.displayRoutinesPanel )
 
 
 		self.settingsAction = QAction( QIcon( ":/gem-mt_plugin/icons/settings" ), "Settings", self.iface.mainWindow() )
@@ -70,38 +78,51 @@ class GEM_MT_Plugin:
 		self.toolbar.addAction( self.useActiveLayerAction )
 		self.toolbar.addAction( self.plotStatsAction )
 		self.toolbar.addAction( self.classificationAction )
+		self.toolbar.addAction( self.routinesAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.loadCsvAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.useActiveLayerAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.plotStatsAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.classificationAction )
+		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.routinesAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.settingsAction )
 		#self.iface.addPluginToMenu( "&GEM-MT Plugin", self.aboutAction )
 
 	def unload(self):
-		# delete the dockwidgets for filtering and classification
-		self.destroyFilterDock()
-		self.destroyClassificationDock()
+		# delete the dockwidget
+		self.destroyDock()
 
-		# remove the loaded layer if any
+		# cleanup stuff related to the loaded layers
 		if self.vl:
 			QObject.disconnect( self.vl, SIGNAL("layerDeleted()"), self.layerDestroyed )
 			self.vl = None
+
+		if self.basemapVl:
+			QObject.disconnect( self.basemapVl, SIGNAL("layerDeleted()"), self.basemapLayerDestroyed )
+			self.basemapVl = None
+
+		if self.classifiedVl:
+			QObject.disconnect( self.classifiedVl, SIGNAL("layerDeleted()"), self.classifiedLayerDestroyed )
+			self.classifiedVl = None
 
 		# remove actions from toolbars and menus
 		self.toolbar.removeAction( self.loadCsvAction )
 		self.toolbar.removeAction( self.useActiveLayerAction )
 		self.toolbar.removeAction( self.plotStatsAction )
 		self.toolbar.removeAction( self.classificationAction )
+		self.toolbar.removeAction( self.routinesAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.loadCsvAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.useActiveLayerAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.plotStatsAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.classificationAction )
+		self.iface.removePluginMenu( "&GEM-MT Plugin", self.routinesAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.settingsAction )
 		#self.iface.removePluginMenu( "&GEM-MT Plugin", self.aboutAction )
 
 		# delete the custom toolbar
 		self.toolbar.deleteLater()
 		self.toolbar = None
+
+		GEM_MT_Plugin.instance = None
 
 
 	def about(self):
@@ -159,6 +180,9 @@ class GEM_MT_Plugin:
 			self.iface.mapCanvas().setRenderFlag( prev_render_flag )
 
 
+	def basemapLayer(self):
+		return self.basemapVl
+
 	def addBasemapLayer(self):
 		if self.basemapVl:
 			return # already added
@@ -181,6 +205,9 @@ class GEM_MT_Plugin:
 	def basemapLayerDestroyed(self):
 		self.basemapVl = None
 
+
+	def eventsLayer(self):
+		return self.vl
 
 	def useActiveLayer(self):
 		vl = self.iface.activeLayer()
@@ -217,67 +244,110 @@ class GEM_MT_Plugin:
 		self.vl = vl
 		QObject.connect( self.vl, SIGNAL("layerDeleted()"), self.layerDestroyed )
 
+		# create the layer that will contain classified point
+		self.createClassifiedLayer()
+
 		# enable the filter/plot panel
-		self.plotStatsAction.setChecked(True)
+		self.createDock()
+		self.updateActionsState()
 
 	def removeLayer(self):
 		if self.vl:
-			# destroy the filter/plot and classification panels
-			self.destroyFilterDock()
-			self.destroyClassificationDock()
+			# destroy the docked panel
+			self.destroyDock()
 
 			QObject.disconnect( self.vl, SIGNAL("layerDeleted()"), self.layerDestroyed )
 			#QgsMapLayerRegistry.instance().removeMapLayer( self.vl.id() )
 			self.vl = None
 
 	def layerDestroyed(self):
-		self.destroyFilterDock()
-		self.destroyClassificationDock()
+		self.destroyDock()
 		self.vl = None
 
 
+	def classifiedLayer(self):
+		if not self.classifiedVl:
+			# (re)create the layer if needed
+			self.createClassifiedLayer()
+		return self.classifiedVl
 
-	def displayFilterDock(self):
-		if not self.plotStatsAction.isChecked():
-			if self.filterDock:
-				self.filterDock.close()
-			return
-
+	def createClassifiedLayer(self):
 		if not self.vl:
-			QMessageBox.warning( self.iface.mainWindow(), "No layer loaded", u"Load a CSV layer and then try again." )
-			self.plotStatsAction.setChecked(False)
 			return
 
-		if not self.filterDock:
-			from filter_wdg import FilterDock
-			self.filterDock = FilterDock(self.iface, self.vl)
-			QObject.connect(self.filterDock, SIGNAL("closed"), self.onFilterDockClosed)
+		self.removeClassifiedLayer()
 
-		# display a dock widget at one time
-		if self.classificationDock and self.classificationDock.isVisible():
-			self.iface.mapCanvas().freeze(True)
-			self.classificationAction.setChecked(False)
+		# create the output layer
+		classField = "classType"
 
-		if not self.filterDock.isVisible():
-			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.filterDock)
+		fields = map( lambda x: x[1], sorted(self.vl.dataProvider().fields().iteritems()) )
+		fields += [ QgsField(classField, QVariant.String) ]
 
-		if self.classificationDock and self.iface.mapCanvas().isFrozen():
-			self.iface.mapCanvas().freeze(False)
+		vl = Utils.createMemoryLayer( 'Point', self.vl.crs().authid(), fields, "classified" )
+		if not vl:
+			return
+
+		# set style
+		LayerStyler.setClassifiedStyle( vl, classField, 0.8 )
+
+		self.classifiedVl = vl
+		QObject.connect( self.classifiedVl, SIGNAL("layerDeleted()"), self.classifiedLayerDestroyed )
+
+	def removeClassifiedLayer(self):
+		if self.classifiedVl:
+			QObject.disconnect( self.classifiedVl, SIGNAL("layerDeleted()"), self.classifiedLayerDestroyed )
+			#QgsMapLayerRegistry.instance().removeMapLayer( self.classifiedVl.id() )
+			self.classifiedVl = None
+
+	def classifiedLayerDestroyed(self):
+		self.classifiedVl = None
 
 
-	def onFilterDockClosed(self):
+	def createDock(self):
+		if not self.dock:
+			from dock_wdg import GemMtDock
+			self.dock = GemMtDock( self.iface )
+			QObject.connect(self.dock, SIGNAL("closed"), self.onDockClosed)
+			self.updateDockView()
+
+		if not self.dock.isVisible():
+			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock)
+
+	def updateDockView(self):
+		if self.plotStatsAction.isChecked():
+			self.dock.setViewIndex(0)
+		elif self.classificationAction.isChecked():
+			self.dock.setViewIndex(1)
+		elif self.routinesAction.isChecked():
+			self.dock.setViewIndex(2)
+		else:
+			self.dock.close()
+
+	def onDockClosed(self):
+		self.resetActionsState()
+
+	def destroyDock(self):
+		if self.dock:
+			self.dock.close()
+			self.dock.deleteLater()
+			self.dock = None
+
+
+	def resetActionsState(self):
 		self.plotStatsAction.setChecked(False)
+		self.classificationAction.setChecked(False)
+		self.routinesAction.setChecked(False)
 
-	def destroyFilterDock(self):
-		if self.filterDock:
-			self.filterDock.close()
-			self.filterDock.deleteLater()
-			self.filterDock = None
+	def updateActionsState(self):
+		index = self.dock.viewIndex()
+		self.plotStatsAction.setChecked(index == 0)
+		self.classificationAction.setChecked(index == 1)
+		self.routinesAction.setChecked(index == 2)
 
-	def displayClassificationDock(self):
+
+	def displayClassificationPanel(self):
 		if not self.classificationAction.isChecked():
-			if self.classificationDock:
-				self.classificationDock.close()
+			self.updateDockView()
 			return
 
 		if not self.vl:
@@ -285,28 +355,41 @@ class GEM_MT_Plugin:
 			self.classificationAction.setChecked(False)
 			return
 
-		if not self.classificationDock:
-			from classification_wdg import ClassificationDock
-			self.classificationDock = ClassificationDock(self.iface, self.vl)
-			QObject.connect(self.classificationDock, SIGNAL("closed"), self.onClassificationDockClosed)
+		self.resetActionsState()
+		self.classificationAction.setChecked(True)
 
-		if self.filterDock and self.filterDock.isVisible():
-			self.iface.mapCanvas().freeze(True)
+		self.createDock()
+		self.updateDockView()
+
+	def displayFilterPanel(self):
+		if not self.plotStatsAction.isChecked():
+			self.updateDockView()
+			return
+
+		if not self.vl:
+			QMessageBox.warning( self.iface.mainWindow(), "No layer loaded", u"Load a CSV layer and then try again." )
 			self.plotStatsAction.setChecked(False)
+			return
 
-		if not self.classificationDock.isVisible():
-			self.iface.addDockWidget(Qt.RightDockWidgetArea, self.classificationDock)
+		self.resetActionsState()
+		self.plotStatsAction.setChecked(True)
 
-		if self.filterDock and self.iface.mapCanvas().isFrozen():
-			self.iface.mapCanvas().freeze(False)
+		self.createDock()
+		self.updateDockView()
 
+	def displayRoutinesPanel(self):
+		if not self.routinesAction.isChecked():
+			self.updateDockView()
+			return
 
-	def onClassificationDockClosed(self):
-		self.classificationAction.setChecked(False)
+		if not self.vl:
+			QMessageBox.warning( self.iface.mainWindow(), "No layer loaded", u"Load a CSV layer and then try again." )
+			self.routinesAction.setChecked(False)
+			return
 
-	def destroyClassificationDock(self):
-		if self.classificationDock:
-			self.classificationDock.close()
-			self.classificationDock.deleteLater()
-			self.classificationDock = None
+		self.resetActionsState()
+		self.routinesAction.setChecked(True)
+
+		self.createDock()
+		self.updateDockView()
 
