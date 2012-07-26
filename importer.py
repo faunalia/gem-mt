@@ -127,7 +127,7 @@ class Ogr2ogrImporter(Importer):
 		QObject.connect( self.process, SIGNAL("finished(int, QProcess::ExitStatus)"),  self._processFinished )
 
 		self.process.start("ogr2ogr", ["-f","SQLite", "-dsco","SPATIALITE=YES", "-gt","65535", "-overwrite", outPath, inPath])
-		print "ogr2ogr", " ".join(["-f","SQLite", "-dsco","SPATIALITE=YES", "-gt","65535", "-overwrite", outPath, inPath])
+		#print "ogr2ogr", " ".join(["-f","SQLite", "-dsco","SPATIALITE=YES", "-gt","65535", "-overwrite", outPath, inPath])
 		self.eventLoop.exec_()
 
 		# cleanup
