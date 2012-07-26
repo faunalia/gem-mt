@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ProcessingWdg</class>
+ <widget class="QWidget" name="ProcessingWdg">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>279</width>
+    <height>289</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="groupBox_5">
+     <property name="title">
+      <string>Spatial filter</string>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QToolButton" name="drawPolygonBtn">
+        <property name="text">
+         <string>Draw</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QToolButton" name="clearPolygonBtn">
+        <property name="text">
+         <string>Clear</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>Algorithm</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QComboBox" name="algorithmCombo">
+     <item>
+      <property name="text">
+       <string>Gardner and Knopoff</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Afteran</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Stepp</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Weichert</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Aki</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Kijko</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Makropoulos &amp; Burton</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item>
+    <widget class="QStackedWidget" name="algorithmStacked">
+     <property name="currentIndex">
+      <number>6</number>
+     </property>
+     <widget class="GardnerKnopoffDeclusterWdg" name="gardnerWdg"/>
+     <widget class="AfteranDeclusterWdg" name="afteranWdg"/>
+     <widget class="SteppCompletenessWdg" name="steppWdg"/>
+     <widget class="WeichertRecurrenceWdg" name="weichertWdg"/>
+     <widget class="AkiRecurrenceWdg" name="akiWdg"/>
+     <widget class="KijkoMaximumMagnitudeWdg" name="kijkoWdg"/>
+     <widget class="MakropoulosMaximumMagnitudeWdg" name="makropoulosWdg"/>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>GardnerKnopoffDeclusterWdg</class>
+   <extends>QWidget</extends>
+   <header>..decluster_wdg</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>AfteranDeclusterWdg</class>
+   <extends>QWidget</extends>
+   <header>..decluster_wdg</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>SteppCompletenessWdg</class>
+   <extends>QWidget</extends>
+   <header>..completeness_wdg</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>WeichertRecurrenceWdg</class>
+   <extends>QWidget</extends>
+   <header>..recurrence_wdg</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>AkiRecurrenceWdg</class>
+   <extends>QWidget</extends>
+   <header>..recurrence_wdg</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>KijkoMaximumMagnitudeWdg</class>
+   <extends>QWidget</extends>
+   <header>..maximum_magnitude_wdg</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>MakropoulosMaximumMagnitudeWdg</class>
+   <extends>QWidget</extends>
+   <header>..maximum_magnitude_wdg.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>algorithmCombo</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>algorithmStacked</receiver>
+   <slot>setCurrentIndex(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>146</x>
+     <y>47</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>145</x>
+     <y>102</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
