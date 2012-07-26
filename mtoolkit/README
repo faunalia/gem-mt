@@ -1,0 +1,8 @@
+All of the python modules in this folder and subfolders are implemented by 
+GEM team. Look at https://github.com/gem/oq-hazard-modeller
+
+
+REQUIREMENTS:
+NumPy
+SciPy (depends on NumPy)
+
