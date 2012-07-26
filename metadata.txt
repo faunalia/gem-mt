@@ -2,7 +2,7 @@
 [general]
 name=GEM Modellers Toolkit plugin
 description=Analysing and Processing Earthquake Catalogue Data
-version=0.0.3
+version=0.0.4
 qgisMinimumVersion=1.5
 
 category=Plugin
@@ -12,7 +12,8 @@ category=Plugin
 ; start of optional metadata
 author=Giuseppe Sucameli (Faunalia)
 
-changelog=first pre-alpha version
+changelog=add processing routines, 
+    fix minor bugs
 
 ; tags are in comma separated value format, spaces are allowed
 tags=earthquakes
