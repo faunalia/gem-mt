@@ -146,7 +146,7 @@ cross section</string>
    <item>
     <widget class="QPushButton" name="displayClassifiedDataBtn">
      <property name="text">
-      <string>Display classified earthquakes</string>
+      <string>Update classified earthquakes</string>
      </property>
     </widget>
    </item>

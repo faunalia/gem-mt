@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ui/classificationWdg.ui'
 #
-# Created: Fri Jul  6 18:26:30 2012
+# Created: Wed Jul 25 03:10:27 2012
 #      by: PyQt4 UI code generator 4.8.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -97,5 +97,5 @@ class Ui_ClassificationWdg(object):
         self.delBufferBtn.setText(QtGui.QApplication.translate("ClassificationWdg", "Delete", None, QtGui.QApplication.UnicodeUTF8))
         self.crossSectionBtn.setText(QtGui.QApplication.translate("ClassificationWdg", "Open the \n"
 "cross section", None, QtGui.QApplication.UnicodeUTF8))
-        self.displayClassifiedDataBtn.setText(QtGui.QApplication.translate("ClassificationWdg", "Display classified earthquakes", None, QtGui.QApplication.UnicodeUTF8))
+        self.displayClassifiedDataBtn.setText(QtGui.QApplication.translate("ClassificationWdg", "Update classified earthquakes", None, QtGui.QApplication.UnicodeUTF8))
 
