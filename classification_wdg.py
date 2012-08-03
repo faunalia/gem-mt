@@ -375,7 +375,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		# plot now!
 		if not dlg:
-			from plot_wdg import CrossSectionDlg
+			from cross_section_wdg import CrossSectionDlg
 			dlg = CrossSectionDlg(self._sharedData, self)
 			self.connect(dlg, SIGNAL("classificationUpdateRequested"), self.updateClassification)
 			self.connect(self, SIGNAL("classificationUpdated"), dlg.refresh)
