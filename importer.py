@@ -183,6 +183,7 @@ class QGisLayerImporter(Importer):
 		if getattr(self, 'importThread', None):
 			QObject.disconnect( self.importThread, SIGNAL("importFinished"), self._importFinished )
 			self.importThread.terminate()
+			self.importThread.wait()
 			self.importThread.deleteLater()
 			self.importThread = None
 
@@ -200,7 +201,7 @@ class QGisLayerImporter(Importer):
 				QgsMessageLog.instance().logMessage(u"Uncaught exception.\n%s" % unicode(e), "GEM-MT")
 				self.emit( SIGNAL("importFinished"), -2, "An error occurred" )
 
-		def _run(self):			
+		def _run(self):
 			path = self.outUri.database()
 			# create the SL database if it doesn't exist
 			f = QFile( path )
