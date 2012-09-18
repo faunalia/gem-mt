@@ -155,9 +155,9 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 			if minVal.isValid() and maxVal.isValid():
 				# check for empty strings (the provider could be unable to retrieve values)
-				if minVal.type() == QVariant.String and minVal.toString().isEmpty():
+				if minVal.toString().isEmpty():
 					minVal = None
-				if maxVal.type() == QVariant.String and maxVal.toString().isEmpty():
+				if maxVal.toString().isEmpty():
 					maxVal = None
 
 				if minVal is None or maxVal is None:
@@ -165,11 +165,14 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 					self.vl.select([index], QgsRectangle(), False)
 					f = QgsFeature()
 					while self.vl.nextFeature( f ):
-						fval = f.attributeMap()[index]
-						if not minVal or fval.toString() < minVal.toString():
+						fval = Utils.valueFromQVariant( f.attributeMap()[index] )
+						if not minVal or fval < minVal:
 							minVal = fval
-						if not maxVal or fval.toString() > maxVal.toString():
+						if not maxVal or fval > maxVal:
 							maxVal = fval
+				else:
+					minVal = Utils.valueFromQVariant( minVal )
+					maxVal = Utils.valueFromQVariant( maxVal )
 
 				# setup filter min/max range
 				try:
@@ -178,6 +181,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 					filterWdg.setMaximum( maxVal )
 					filterWdg.setHighValue( maxVal )
 				except:
+					raise
 					# unable to set min/max, skip the filter
 					continue
 
@@ -201,7 +205,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		subsets = []
 		for key, index in key2index.iteritems():
 			filterWdg = self._filterForKey( key )
-			if not filterWdg or not filterWdg.isActive():
+			if not filterWdg or not filterWdg.isEnabled() or not filterWdg.isActive():
 				continue
 
 			name = pr.fields()[index].name()
