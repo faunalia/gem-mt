@@ -21,6 +21,7 @@ email				: brush.tyler@gmail.com
 
 # Python Qt4 bindings for GUI objects
 from PyQt4 import QtGui, QtCore
+from .utils import Utils
 
 # Matplotlib Figure object
 from matplotlib.figure import Figure
@@ -120,19 +121,32 @@ class PlotWdg(FigureCanvasQTAgg):
 		self.axes.set_xlabel( xLabel or "" )
 		self.axes.set_ylabel( yLabel or "" )
 
+	def _removeItem(self, item):
+		try:
+			self.collections.remove( item )
+		except ValueError:
+			pass
+
+		try:
+			if isinstance(item, (list, tuple, set)):
+				for i in item:
+					i.remove()
+			else:
+				item.remove()
+		except AttributeError:
+			pass
+
+
 	def _clear(self):
 		for item in self.collections:
-			try:
-				item.remove()
-			except AttributeError:
-				pass
+			self._removeItem( item )
 
 		self.collections = []
 
 	def _plot(self):
 		# convert values, then create the plot
-		x = map(PlotWdg._valueFromQVariant, self.x)
-		y = map(PlotWdg._valueFromQVariant, self.y)
+		x = map(Utils.valueFromQVariant, self.x)
+		y = map(Utils.valueFromQVariant, self.y)
 
 		items = self._callPlotFunc('plot', x, y)
 		self.collections.append( items )
@@ -152,8 +166,7 @@ class PlotWdg(FigureCanvasQTAgg):
 		if y is not None:
 			items = getattr(self.axes, plotfunc)(x, y, **kwargs)
 		else:
-			n, bins, patches = getattr(self.axes, plotfunc)(x, **kwargs)
-			items = patches
+			items = getattr(self.axes, plotfunc)(x, **kwargs)
 
 
 		if is_x_date: 
@@ -185,43 +198,6 @@ class PlotWdg(FigureCanvasQTAgg):
 			#bins = timedelta.days * 4	# four bins for a day
 
 
-	@staticmethod
-	def _valueFromQVariant(val):
-		""" function to convert values to proper types """
-		if not isinstance(val, QtCore.QVariant):
-			return val
-
-		if val.type() == QtCore.QVariant.Int:
-			return val.toInt()[0]
-		elif val.type() == QtCore.QVariant.Double:
-			return val.toDouble()[0]
-		elif val.type() == QtCore.QVariant.Date:
-			return val.toDate().toPyDate()
-		elif val.type() == QtCore.QVariant.DateTime:
-			return val.toDateTime().toPyDateTime()
-
-		# try to convert the value to a date
-		s = unicode(val.toString())
-		try:
-			return datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
-		except ValueError:
-			pass
-		try:
-			return datetime.strptime(s, '%Y-%m-%d')
-		except ValueError:
-			pass
-
-		v, ok = val.toDouble()
-		if ok: return v
-		v, ok = val.toInt()
-		if ok: return v
-		v = val.toDateTime()
-		if v.isValid(): return v.toPyDateTime()
-		v = val.toDate()
-		if v.isValid(): return v.toPyDate()
-
-		return unicode(s)
-
 
 class HistogramPlotWdg(PlotWdg):
 
@@ -230,7 +206,7 @@ class HistogramPlotWdg(PlotWdg):
 
 	def _plot(self):
 		# convert values, then create the plot
-		x = map(PlotWdg._valueFromQVariant, self.x)
+		x = map(Utils.valueFromQVariant, self.x)
 
 		items = self._callPlotFunc('hist', x, bins=50)
 		self.collections.append( items )
@@ -243,8 +219,8 @@ class ScatterPlotWdg(PlotWdg):
 
 	def _plot(self):
 		# convert values, then create the plot
-		x = map(PlotWdg._valueFromQVariant, self.x)
-		y = map(PlotWdg._valueFromQVariant, self.y)
+		x = map(Utils.valueFromQVariant, self.x)
+		y = map(Utils.valueFromQVariant, self.y)
 
 		items = self._callPlotFunc('scatter', x, y)
 		self.collections.append( items )

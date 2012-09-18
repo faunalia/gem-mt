@@ -20,6 +20,7 @@ email				: brush.tyler@gmail.com
 """
 
 from PyQt4 import QtGui, QtCore
+from .utils import Utils
 
 from .plot_wdg import PlotDlg, PlotWdg, NavigationToolbar, ClippedLine2D
 import resources_rc
@@ -94,8 +95,8 @@ class CrossSectionGraph(PlotWdg):
 
 	def _plot(self):
 		# convert values, then create the plot
-		x = map(PlotWdg._valueFromQVariant, self.x)
-		y = map(PlotWdg._valueFromQVariant, self.y)
+		x = map(Utils.valueFromQVariant, self.x)
+		y = map(Utils.valueFromQVariant, self.y)
 
 		# split values in 3 classes: shallow, deep and unclassified earthquakes
 		classes = (shallow, deep, unclassified) = ( ([],[]), ([],[]), ([],[]) )
