@@ -156,6 +156,46 @@ class Utils:
 		return size
 
 
+	@staticmethod
+	def valueFromQVariant(val):
+		""" function to convert values to proper types """
+		if not isinstance(val, QVariant):
+			return val
+
+		if val.type() == QVariant.Int:
+			return val.toInt()[0]
+		elif val.type() == QVariant.Double:
+			return val.toDouble()[0]
+		elif val.type() == QVariant.Date:
+			return val.toDate().toPyDate()
+		elif val.type() == QVariant.DateTime:
+			return val.toDateTime().toPyDateTime()
+
+		# try to convert the value to a date
+		from datetime import datetime
+		s = unicode(val.toString())
+		try:
+			return datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
+		except ValueError:
+			pass
+		try:
+			return datetime.strptime(s, '%Y-%m-%d')
+		except ValueError:
+			pass
+
+		v, ok = val.toDouble()
+		if ok: return v
+		v, ok = val.toInt()
+		if ok: return v
+		v = val.toDateTime()
+		if v.isValid(): return v.toPyDateTime()
+		v = val.toDate()
+		if v.isValid(): return v.toPyDate()
+
+		return unicode(s)
+
+
+
 class LayerStyler:
 
 	@staticmethod
@@ -227,11 +267,11 @@ class LayerStyler:
 		maxVal = int(maxVal) + 1
 
 		# compute value ranges
-		count = min(9, maxVal-minVal)	# how many ranges?
+		count = min(6, maxVal-minVal)	# how many ranges?
 		step = int(float(maxVal - minVal) / count)	# step size
 		ticks = range(minVal, maxVal+step, step)
 		ranges = []
-		for i in range(count-1):
+		for i in range(count):
 			ranges.append( (ticks[i], ticks[i+1], {'color':QColor('blue'), 'size':1+i} ) )
 
 		# set the layer style
@@ -318,6 +358,12 @@ class LayerStyler:
 			size = attrs.get('size', None)
 			if size is not None:
 				symbolV2.setSize( size )
+
+			if hasattr(symbolV2, 'setScaleMethod'):
+				# from QGis > 1.8 QgsSymbolV2 has 2 scale methods:
+				# ScaleArea (default) and ScaleDiameter
+				symbolV2.setScaleMethod( QgsSymbolV2.ScaleDiameter )
+
 			categoryV2 = QgsRendererCategoryV2( value, symbolV2, label )
 			categoryV2List.append( categoryV2 )
 
