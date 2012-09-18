@@ -33,7 +33,7 @@ def icon():
 	return "icons/logo.png"
 
 def version():
-	return "0.0.5"
+	return "0.0.8"
 
 def qgisMinimumVersion():
 	return "1.5"
