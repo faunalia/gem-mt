@@ -21,6 +21,7 @@ email                : brush.tyler@gmail.com
 
 from PyQt4 import QtGui, QtCore
 from rangeSlider import RangeSlider
+from datetime import date, datetime
 
 class RangeFilter(QtGui.QWidget):
     def __init__(self, *args):
@@ -287,9 +288,9 @@ class DateRangeFilter(RangeFilter):
         self.maxSpin.setCalendarPopup(True)
         self.maxSpin.setDisplayFormat("yyyy.MM.dd")#QtCore.QLocale.system().dateFormat(QtCore.QLocale.ShortFormat))
 
-        minFunc = lambda obj: self._fixupDateTime(obj.minimumDateTime())#.toTime_t()
-        maxFunc = lambda obj: self._fixupDateTime(obj.maximumDateTime())#.toTime_t()
-        valueFunc = lambda obj: self._fixupDateTime(obj.dateTime())#.toTime_t()
+        minFunc = lambda obj: self._fixupDateTime(obj.minimumDateTime())
+        maxFunc = lambda obj: self._fixupDateTime(obj.maximumDateTime())
+        valueFunc = lambda obj: self._fixupDateTime(obj.dateTime())
         setMinFunc = lambda obj, val: obj.setMinimumDateTime( self._convertToDateTime( val ) )
         setMaxFunc = lambda obj, val: obj.setMaximumDateTime( self._convertToDateTime( val ) )
         setValueFunc = lambda obj, val: obj.setDateTime( self._convertToDateTime( val ) )
@@ -341,8 +342,10 @@ class DateRangeFilter(RangeFilter):
     def _convertToDateTime(self, val):
         if isinstance(val, (int,long)):
             return self._fixupDateTime( QtCore.QDateTime.fromTime_t(val) )
+        elif isinstance(val, (date, datetime)):
+            return self._fixupDateTime( QtCore.QDateTime( val.year, val.month, val.day, 0,0,0 ) )
         elif isinstance(val, QtCore.QDate):
-            return QtCore.QDateTime(val, QtCore.QTime(0,0,0))
+            return self._fixupDateTime( QtCore.QDateTime(val, QtCore.QTime(0,0,0)) )
         elif isinstance(val, QtCore.QDateTime):
              return self._fixupDateTime( val )
 
@@ -350,10 +353,15 @@ class DateRangeFilter(RangeFilter):
     def _convertToValue(self, val):
         dt = self._convertToDateTime(val)
         if dt:
-            return self._fixupDateTime( dt ).toTime_t()
+            return dt.toTime_t()
 
     @classmethod
     def _fixupDateTime(self, dt):
+        if not dt or not dt.isValid():
+            return
+        if dt <= QtCore.QDateTime(1970,1,1, 1,0,0) :
+            return QtCore.QDateTime(1970,1,1,1,0,0)
+
         dt.setTime(QtCore.QTime(0,0,0))
         return dt
 
@@ -379,16 +387,18 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == 'date':
         rangeFilter = DateRangeFilter()
-        rangeFilter.setMinimum(QtCore.QDate(2000,01,01))
-        rangeFilter.setLowValue(QtCore.QDate(2000,01,01))
-        rangeFilter.setMaximum(QtCore.QDate(2001,12,31))
-        rangeFilter.setHighValue(QtCore.QDate(2001,12,31))
+        rangeFilter.setMinimum(QtCore.QDate(1970,01,01))
+        rangeFilter.setLowValue(QtCore.QDate(1980,01,01))
+        rangeFilter.setMaximum(QtCore.QDate(2020,12,31))
+        rangeFilter.setHighValue(QtCore.QDate(2010,12,31))
 
     else:
         print "invalid argument %s" % sys.argv[1]
         sys.exit(1)
 
     rangeFilter.setOrientation( QtCore.Qt.Horizontal )
+    print "min:\t", rangeFilter.minimum(), "\t\tmax:\t", rangeFilter.maximum()
+    print "low:\t", rangeFilter.minimum(), "\t\thigh:\t", rangeFilter.maximum()
 
     def echo(value):
         print value
