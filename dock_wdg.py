@@ -89,6 +89,7 @@ class GemMtDock(QDockWidget):
 
 	def setupUi(self):
 		self.setObjectName( "gem_mt_dockwidget" )
+		self.setWindowTitle( "Filter/Plot panel" )
 
 		self.stacked = QStackedWidget(self)
 		self.stacked.addWidget( self.filterWdg )
