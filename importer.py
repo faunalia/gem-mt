@@ -289,6 +289,7 @@ class CsvToSL(QObject):
 				ret = self.CANCELED
 			else:
 				ret = self.ERROR
+				QMessageBox.warning( self.parent(), "Error", importer.errorMessage() )
 		else:
 			ret = self.OK
 
