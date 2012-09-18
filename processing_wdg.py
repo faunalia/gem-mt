@@ -54,13 +54,10 @@ class ProcessingWdg(QWidget, Ui_ProcessingWdg):
 		self.connect(self.drawPolygonBtn, SIGNAL("clicked()"), self.drawPolygon)
 		self.connect(self.clearPolygonBtn, SIGNAL("clicked()"), self.clearPolygon)
 
-		QObject.connect(self.gardnerWdg, SIGNAL("dataRequested"), self.fillData)
-		QObject.connect(self.afteranWdg, SIGNAL("dataRequested"), self.fillData)
-		QObject.connect(self.steppWdg, SIGNAL("dataRequested"), self.fillData)
-		QObject.connect(self.weichertWdg, SIGNAL("dataRequested"), self.fillData)
-		QObject.connect(self.akiWdg, SIGNAL("dataRequested"), self.fillData)
-		QObject.connect(self.kijkoWdg, SIGNAL("dataRequested"), self.fillData)
-		QObject.connect(self.makropoulosWdg, SIGNAL("dataRequested"), self.fillData)
+		QObject.connect(self.declusterWdg, SIGNAL("dataRequested"), self.fillData)
+		QObject.connect(self.completenessWdg, SIGNAL("dataRequested"), self.fillData)
+		QObject.connect(self.recurrenceWdg, SIGNAL("dataRequested"), self.fillData)
+		QObject.connect(self.maxMagnitudeWdg, SIGNAL("dataRequested"), self.fillData)
 
 
 	def storePrevMapTool(self):

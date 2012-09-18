@@ -43,45 +43,30 @@
    <item>
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>Algorithm</string>
+      <string>Method</string>
      </property>
     </widget>
    </item>
    <item>
-    <widget class="QComboBox" name="algorithmCombo">
+    <widget class="QComboBox" name="moduleCombo">
      <item>
       <property name="text">
-       <string>Gardner and Knopoff</string>
+       <string>Decluster</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>Afteran</string>
+       <string>Completeness</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>Stepp</string>
+       <string>Recurrence</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>Weichert</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>Aki</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>Kijko</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>Makropoulos &amp; Burton</string>
+       <string>Maximum magnitude</string>
       </property>
      </item>
     </widget>
@@ -89,67 +74,46 @@
    <item>
     <widget class="QStackedWidget" name="algorithmStacked">
      <property name="currentIndex">
-      <number>6</number>
+      <number>2</number>
      </property>
-     <widget class="GardnerKnopoffDeclusterWdg" name="gardnerWdg"/>
-     <widget class="AfteranDeclusterWdg" name="afteranWdg"/>
-     <widget class="SteppCompletenessWdg" name="steppWdg"/>
-     <widget class="WeichertRecurrenceWdg" name="weichertWdg"/>
-     <widget class="AkiRecurrenceWdg" name="akiWdg"/>
-     <widget class="KijkoMaximumMagnitudeWdg" name="kijkoWdg"/>
-     <widget class="MakropoulosMaximumMagnitudeWdg" name="makropoulosWdg"/>
+     <widget class="DeclusterWdg" name="declusterWdg"/>
+     <widget class="CompletenessWdg" name="completenessWdg"/>
+     <widget class="RecurrenceWdg" name="recurrenceWdg"/>
+     <widget class="MaximumMagnitudeWdg" name="maxMagnitudeWdg"/>
     </widget>
    </item>
   </layout>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>GardnerKnopoffDeclusterWdg</class>
+   <class>DeclusterWdg</class>
    <extends>QWidget</extends>
    <header>..decluster_wdg</header>
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>AfteranDeclusterWdg</class>
-   <extends>QWidget</extends>
-   <header>..decluster_wdg</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>SteppCompletenessWdg</class>
+   <class>CompletenessWdg</class>
    <extends>QWidget</extends>
    <header>..completeness_wdg</header>
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>WeichertRecurrenceWdg</class>
-   <extends>QWidget</extends>
-   <header>..recurrence_wdg</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>AkiRecurrenceWdg</class>
-   <extends>QWidget</extends>
-   <header>..recurrence_wdg</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>KijkoMaximumMagnitudeWdg</class>
-   <extends>QWidget</extends>
-   <header>..maximum_magnitude_wdg</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>MakropoulosMaximumMagnitudeWdg</class>
+   <class>MaximumMagnitudeWdg</class>
    <extends>QWidget</extends>
    <header>..maximum_magnitude_wdg.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>RecurrenceWdg</class>
+   <extends>QWidget</extends>
+   <header>..recurrence_wdg</header>
    <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>
  <connections>
   <connection>
-   <sender>algorithmCombo</sender>
+   <sender>moduleCombo</sender>
    <signal>currentIndexChanged(int)</signal>
    <receiver>algorithmStacked</receiver>
    <slot>setCurrentIndex(int)</slot>

@@ -27,174 +27,107 @@ from utils import Utils, LayerStyler
 
 import numpy as np
 
-class KijkoMaximumMagnitudeWdg(QWidget):
+
+class MaximumMagnitudeWdg(QWidget):
 
 	def __init__(self, parent=None):
 		QWidget.__init__(self, parent)
 		self.setupUi()
-		self.algorithmName = "kijko_maximum_magnitude"
 
 	def setupUi(self):
 		layout = QVBoxLayout(self)
+		self.setLayout(layout)
 
-		label = QLabel("Iteration tolerance", self)
+		label = QLabel("Algorithm", self)
 		layout.addWidget(label)
 
-		self.iter_tol = QLineEdit("0.2", self)
-		validator = QDoubleValidator(self)
-		validator.setBottom( 0.1 )
-		self.iter_tol.setValidator( validator )
-		layout.addWidget(self.iter_tol)
+		self.algCombo = QComboBox(self)
+		self.algCombo.addItems( ["Kijko", "Makropoulos & Burton" ] )
+		layout.addWidget(self.algCombo)
 
-		label = QLabel("Maximum iteration", self)
+		label = QLabel("Sigma magnitude field", self)
 		layout.addWidget(label)
 
-		self.max_iter = QLineEdit("1000", self)
-		validator = QIntValidator(self)
-		validator.setBottom( 1 )
-		self.max_iter.setValidator( validator )
-		layout.addWidget(self.max_iter)
-
-		label = QLabel("Number samples", self)
-		layout.addWidget(label)
-
-		self.num_samples = QLineEdit("4", self)
-		validator = QIntValidator(self)
-		validator.setBottom( 1 )
-		self.num_samples.setValidator( validator )
-		layout.addWidget(self.num_samples)
+		layer = Utils.classifiedVl()
+		self.combo = QComboBox(self)
+		self.combo.addItem( "-- none --", -1 )
+		for idx, fld in layer.dataProvider().fields().iteritems():
+			self.combo.addItem( fld.name(), idx )
+		layout.addWidget(self.combo)
 
 		spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 		layout.addItem(spacer)
 
-		self.runBtn = QPushButton("Run", self)
-		QObject.connect( self.runBtn, SIGNAL("clicked()"), self.run )
+		self.runBtn = QPushButton("Save to file", self)
+		QObject.connect( self.runBtn, SIGNAL("clicked()"), self.toAscii )
 		layout.addWidget(self.runBtn)
 
-		self.setLayout(layout)
+
+	def maximum_magnitude(self, *argv, **kwargs):
+		""" This method runs decluster routine on the passed data. """
+		algNum = self.algCombo.currentIndex()
+		if algNum == 0:
+			return self.kijko_maximum_magnitude(*argv, **kwargs)
+		elif algNum == 1:
+			return self.makropoulos_maximum_magnitude(*argv, **kwargs)
+		raise NotImplemented
 
 	def kijko_maximum_magnitude(self, matrix):
 		""" This method runs kijko maximum magnitude routines on the data.
 
 			@params:
 				**matrix** matrix with these columns in order: 
-					magnitude
+					magnitude, sigma_magn (optional)
 		"""
 
 		# convert QVariant objects to proper values
 		magnitude = np.vectorize(lambda x: x.toDouble()[0])(matrix[:, 0])
+		if np.shape(matrix)[1] > 1:
+			sigma_magn = np.vectorize(lambda x: x.toDouble()[0])(matrix[:, 1])
+		else:
+			sigma_magn = np.ones( np.shape(magnitude) ) * 0.1
 
-		# get options
-		iter_tol = float(self.iter_tol.text())
-		max_iter = float(self.max_iter.text())
-		num_samples = float(self.num_samples.text())
-
-		neq = np.shape(magnitude)[0]
-		sigma_magn = np.zeros(neq) + np.std(magnitude)
+		# default options
+		iter_tol = 1.0E-5
+		max_iter = 1000
+		num_samples = 51
+		neq = 100	#np.shape(magnitude)[0]
 
 		# run now!
 		from .mtoolkit.scientific.maximum_magnitude import kijko_nonparametric_gauss
 		return kijko_nonparametric_gauss(magnitude, sigma_magn, neq, num_samples, iter_tol, max_iter, max_observed=False)
 
 
-	def run(self):
-		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
-		try:
-			max_magn, max_magn_sigma = self._run()
-		finally:
-			QApplication.restoreOverrideCursor()
-
-		# display result now!
-		QMessageBox.information(self, "Maximum magnitude", "Stats:\n\nmax magnitude: %s\nmax magnitude sigma: %s" % (max_magn, max_magn_sigma))
-
-	def _run(self):
-		data, panMap = [], {}
-
-		# ask for populating data and panMap objects
-		self.emit( SIGNAL("dataRequested"), data, panMap )
-
-		if len(data) <= 0:
-			return
-
-		# get indexes of fields required to execute the algorithm
-		indexes = []
-		for f in ['magnitude']:
-			try:
-				indexes.append( panMap[f] )
-			except KeyError:
-				QMessageBox.warning(self, "Processing", u"Cannot find the field containing the %s. Such field is required to execute the selected algorithm." % f)
-				return
-
-		# convert input data to a matrix
-		data = np.array(data)
-
-		# run the algorithm
-		max_magn, max_magn_sigma = self.kijko_maximum_magnitude( data[:, indexes] )
-		return max_magn, max_magn_sigma
-
-
-class MakropoulosMaximumMagnitudeWdg(QWidget):
-
-	def __init__(self, parent=None):
-		QWidget.__init__(self, parent)
-		self.setupUi()
-		self.algorithmName = "makropoulos_maximum_magnitude"
-
-	def setupUi(self):
-		layout = QVBoxLayout(self)
-
-		label = QLabel("Number bootstraps", self)
-		layout.addWidget(label)
-
-		self.num_bootstraps = QLineEdit("10", self)
-		validator = QIntValidator(self)
-		validator.setBottom( 1 )
-		self.num_bootstraps.setValidator( validator )
-		layout.addWidget(self.num_bootstraps)
-
-		spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-		layout.addItem(spacer)
-
-		self.runBtn = QPushButton("Run", self)
-		QObject.connect( self.runBtn, SIGNAL("clicked()"), self.run )
-		layout.addWidget(self.runBtn)
-
-		self.setLayout(layout)
-
 	def makropoulos_maximum_magnitude(self, matrix):
 		""" This method runs makropoulos maximum magnitude routines on the data.
 
 			@params:
 				**matrix** matrix with these columns in order: 
-					year, magnitude
+					year, magnitude, sigma_magn (optional)
 		"""
 
 		# convert QVariant objects to proper values
 		year = np.vectorize(lambda x: x.toDate().year())(matrix[:, 0])
 		magnitude = np.vectorize(lambda x: x.toDouble()[0])(matrix[:, 1])
 
-		# get options
-		num_bootstraps = int(self.num_bootstraps.text())
+		if np.shape(matrix)[1] > 2:
+			sigma_magn = np.vectorize(lambda x: x.toDouble()[0])(matrix[:, 2])
+		else:
+			sigma_magn = np.ones( np.shape(magnitude) ) * 0.1
 
-		sigma_magn = np.zeros(np.shape(magnitude)[0]) + np.std(magnitude)
+		# default options
+		num_bootstraps = 100	#int(self.num_bootstraps.text())
+		sigma_magn = 0.1	#np.zeros(np.shape(magnitude)[0]) + np.std(magnitude)
 
 		# run now!
 		from .mtoolkit.scientific.maximum_magnitude import cum_mo_uncertainty
 		return cum_mo_uncertainty(year, magnitude, sigma_magn, num_bootstraps)
 
-	def run(self):
-		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
-		try:
-			max_magn, max_magn_sigma = self._run()
-		finally:
-			QApplication.restoreOverrideCursor()
 
-		# display result now!
-		QMessageBox.information(self, "Maximum magnitude", "Stats:\n\nmax magnitude: %s\nmax magnitude sigma: %s" % (max_magn, max_magn_sigma))
 
-	def _run(self):
-		data, panMap = [], {}
-
+	def requestData(self, fieldkeys):
+		data, panMap, indexes = [], {}, []
+		
 		# ask for populating data and panMap objects
 		self.emit( SIGNAL("dataRequested"), data, panMap )
 
@@ -202,8 +135,7 @@ class MakropoulosMaximumMagnitudeWdg(QWidget):
 			return
 
 		# get indexes of fields required to execute the algorithm
-		indexes = []
-		for f in ['date', 'magnitude']:
+		for f in fieldkeys:
 			try:
 				indexes.append( panMap[f] )
 			except KeyError:
@@ -213,7 +145,48 @@ class MakropoulosMaximumMagnitudeWdg(QWidget):
 		# convert input data to a matrix
 		data = np.array(data)
 
+		return data, panMap, indexes
+
+	def toAscii(self):
+		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+		try:
+			ret = self._toAscii()
+			if ret is None:
+				return
+		finally:
+			QApplication.restoreOverrideCursor()
+
+		# store the output to ascii files
+		filename = QFileDialog.getSaveFileName( self, "Choose where to save the output", QString(), "ASCII file (*.txt)" )
+		if filename == "":
+			return
+
+		if filename[-4:] != ".txt":
+			filename += ".txt"
+
+		max_magn, max_magn_sigma = ret
+
+		with open( unicode(filename), 'w' ) as fout:
+			fout.write( "max_magn:\n%s" % repr(max_magn) )
+			fout.write( "\n\nmax_magn_sigma:\n%s" % repr(max_magn_sigma) )
+
+	def _toAscii(self):
+		if self.algCombo.currentIndex() == 0:
+			required_fields = ['magnitude']
+		else:
+			required_fields = ['date', 'magnitude']
+
+		req = self.requestData( required_fields )
+		if req is None:
+			return
+
+		data, panMap, indexes = req
+
+		sigma_field_idx = self.combo.itemData(self.combo.currentIndex()).toInt()[0]
+		if sigma_field_idx >= 0:
+			indexes.append( sigma_field_idx )
+
 		# run the algorithm
-		max_magn, max_magn_sigma = self.makropoulos_maximum_magnitude( data[:, indexes] )
+		max_magn, max_magn_sigma = self.maximum_magnitude( data[:, indexes] )
 		return max_magn, max_magn_sigma
 

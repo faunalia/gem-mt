@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ui/processingWdg.ui'
 #
-# Created: Wed Jul 25 05:48:12 2012
+# Created: Sat Sep 15 04:26:03 2012
 #      by: PyQt4 UI code generator 4.8.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -35,44 +35,32 @@ class Ui_ProcessingWdg(object):
         self.label = QtGui.QLabel(ProcessingWdg)
         self.label.setObjectName(_fromUtf8("label"))
         self.verticalLayout.addWidget(self.label)
-        self.algorithmCombo = QtGui.QComboBox(ProcessingWdg)
-        self.algorithmCombo.setObjectName(_fromUtf8("algorithmCombo"))
-        self.algorithmCombo.addItem(_fromUtf8(""))
-        self.algorithmCombo.addItem(_fromUtf8(""))
-        self.algorithmCombo.addItem(_fromUtf8(""))
-        self.algorithmCombo.addItem(_fromUtf8(""))
-        self.algorithmCombo.addItem(_fromUtf8(""))
-        self.algorithmCombo.addItem(_fromUtf8(""))
-        self.algorithmCombo.addItem(_fromUtf8(""))
-        self.verticalLayout.addWidget(self.algorithmCombo)
+        self.moduleCombo = QtGui.QComboBox(ProcessingWdg)
+        self.moduleCombo.setObjectName(_fromUtf8("moduleCombo"))
+        self.moduleCombo.addItem(_fromUtf8(""))
+        self.moduleCombo.addItem(_fromUtf8(""))
+        self.moduleCombo.addItem(_fromUtf8(""))
+        self.moduleCombo.addItem(_fromUtf8(""))
+        self.verticalLayout.addWidget(self.moduleCombo)
         self.algorithmStacked = QtGui.QStackedWidget(ProcessingWdg)
         self.algorithmStacked.setObjectName(_fromUtf8("algorithmStacked"))
-        self.gardnerWdg = GardnerKnopoffDeclusterWdg()
-        self.gardnerWdg.setObjectName(_fromUtf8("gardnerWdg"))
-        self.algorithmStacked.addWidget(self.gardnerWdg)
-        self.afteranWdg = AfteranDeclusterWdg()
-        self.afteranWdg.setObjectName(_fromUtf8("afteranWdg"))
-        self.algorithmStacked.addWidget(self.afteranWdg)
-        self.steppWdg = SteppCompletenessWdg()
-        self.steppWdg.setObjectName(_fromUtf8("steppWdg"))
-        self.algorithmStacked.addWidget(self.steppWdg)
-        self.weichertWdg = WeichertRecurrenceWdg()
-        self.weichertWdg.setObjectName(_fromUtf8("weichertWdg"))
-        self.algorithmStacked.addWidget(self.weichertWdg)
-        self.akiWdg = AkiRecurrenceWdg()
-        self.akiWdg.setObjectName(_fromUtf8("akiWdg"))
-        self.algorithmStacked.addWidget(self.akiWdg)
-        self.kijkoWdg = KijkoMaximumMagnitudeWdg()
-        self.kijkoWdg.setObjectName(_fromUtf8("kijkoWdg"))
-        self.algorithmStacked.addWidget(self.kijkoWdg)
-        self.makropoulosWdg = MakropoulosMaximumMagnitudeWdg()
-        self.makropoulosWdg.setObjectName(_fromUtf8("makropoulosWdg"))
-        self.algorithmStacked.addWidget(self.makropoulosWdg)
+        self.declusterWdg = DeclusterWdg()
+        self.declusterWdg.setObjectName(_fromUtf8("declusterWdg"))
+        self.algorithmStacked.addWidget(self.declusterWdg)
+        self.completenessWdg = CompletenessWdg()
+        self.completenessWdg.setObjectName(_fromUtf8("completenessWdg"))
+        self.algorithmStacked.addWidget(self.completenessWdg)
+        self.recurrenceWdg = RecurrenceWdg()
+        self.recurrenceWdg.setObjectName(_fromUtf8("recurrenceWdg"))
+        self.algorithmStacked.addWidget(self.recurrenceWdg)
+        self.maxMagnitudeWdg = MaximumMagnitudeWdg()
+        self.maxMagnitudeWdg.setObjectName(_fromUtf8("maxMagnitudeWdg"))
+        self.algorithmStacked.addWidget(self.maxMagnitudeWdg)
         self.verticalLayout.addWidget(self.algorithmStacked)
 
         self.retranslateUi(ProcessingWdg)
-        self.algorithmStacked.setCurrentIndex(6)
-        QtCore.QObject.connect(self.algorithmCombo, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), self.algorithmStacked.setCurrentIndex)
+        self.algorithmStacked.setCurrentIndex(2)
+        QtCore.QObject.connect(self.moduleCombo, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), self.algorithmStacked.setCurrentIndex)
         QtCore.QMetaObject.connectSlotsByName(ProcessingWdg)
 
     def retranslateUi(self, ProcessingWdg):
@@ -80,16 +68,13 @@ class Ui_ProcessingWdg(object):
         self.groupBox_5.setTitle(QtGui.QApplication.translate("ProcessingWdg", "Spatial filter", None, QtGui.QApplication.UnicodeUTF8))
         self.drawPolygonBtn.setText(QtGui.QApplication.translate("ProcessingWdg", "Draw", None, QtGui.QApplication.UnicodeUTF8))
         self.clearPolygonBtn.setText(QtGui.QApplication.translate("ProcessingWdg", "Clear", None, QtGui.QApplication.UnicodeUTF8))
-        self.label.setText(QtGui.QApplication.translate("ProcessingWdg", "Algorithm", None, QtGui.QApplication.UnicodeUTF8))
-        self.algorithmCombo.setItemText(0, QtGui.QApplication.translate("ProcessingWdg", "Gardner and Knopoff", None, QtGui.QApplication.UnicodeUTF8))
-        self.algorithmCombo.setItemText(1, QtGui.QApplication.translate("ProcessingWdg", "Afteran", None, QtGui.QApplication.UnicodeUTF8))
-        self.algorithmCombo.setItemText(2, QtGui.QApplication.translate("ProcessingWdg", "Stepp", None, QtGui.QApplication.UnicodeUTF8))
-        self.algorithmCombo.setItemText(3, QtGui.QApplication.translate("ProcessingWdg", "Weichert", None, QtGui.QApplication.UnicodeUTF8))
-        self.algorithmCombo.setItemText(4, QtGui.QApplication.translate("ProcessingWdg", "Aki", None, QtGui.QApplication.UnicodeUTF8))
-        self.algorithmCombo.setItemText(5, QtGui.QApplication.translate("ProcessingWdg", "Kijko", None, QtGui.QApplication.UnicodeUTF8))
-        self.algorithmCombo.setItemText(6, QtGui.QApplication.translate("ProcessingWdg", "Makropoulos & Burton", None, QtGui.QApplication.UnicodeUTF8))
+        self.label.setText(QtGui.QApplication.translate("ProcessingWdg", "Method", None, QtGui.QApplication.UnicodeUTF8))
+        self.moduleCombo.setItemText(0, QtGui.QApplication.translate("ProcessingWdg", "Decluster", None, QtGui.QApplication.UnicodeUTF8))
+        self.moduleCombo.setItemText(1, QtGui.QApplication.translate("ProcessingWdg", "Completeness", None, QtGui.QApplication.UnicodeUTF8))
+        self.moduleCombo.setItemText(2, QtGui.QApplication.translate("ProcessingWdg", "Recurrence", None, QtGui.QApplication.UnicodeUTF8))
+        self.moduleCombo.setItemText(3, QtGui.QApplication.translate("ProcessingWdg", "Maximum magnitude", None, QtGui.QApplication.UnicodeUTF8))
 
-from ..completeness_wdg import SteppCompletenessWdg
-from ..recurrence_wdg import AkiRecurrenceWdg, WeichertRecurrenceWdg
-from ..decluster_wdg import GardnerKnopoffDeclusterWdg, AfteranDeclusterWdg
-from ..maximum_magnitude_wdg import KijkoMaximumMagnitudeWdg, MakropoulosMaximumMagnitudeWdg
+from ..decluster_wdg import DeclusterWdg
+from ..recurrence_wdg import RecurrenceWdg
+from ..completeness_wdg import CompletenessWdg
+from ..maximum_magnitude_wdg import MaximumMagnitudeWdg

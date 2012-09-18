@@ -23,33 +23,128 @@ email                : brush.tyler@gmail.com
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from utils import Utils, LayerStyler
+from qgis.core import QGis
+from .utils import Utils, LayerStyler
 
 import numpy as np
 
 class DeclusterWdg(QWidget):
 
+	MAP_PLOT, CUMULATIVE_PLOT = range(2)
+
 	def __init__(self, parent=None):
 		QWidget.__init__(self, parent)
+		self.setupUi()
 
 	def setupUi(self):
-		layout = self.layout()
+		layout = QVBoxLayout(self)
+		self.setLayout(layout)
+
+		label = QLabel("Algorithm", self)
+		layout.addWidget(label)
+
+		self.algCombo = QComboBox(self)
+		self.algCombo.addItems( ["Gardner and Knopoff", "Afteran" ] )
+		layout.addWidget(self.algCombo)
+
+		label = QLabel("Window options", self)
+		layout.addWidget(label)
+
+		self.winOptCombo = QComboBox(self)
+		self.winOptCombo.addItems( ["GardnerKnopoff", "Gruenthal", "Uhrhammer" ] )
+		layout.addWidget(self.winOptCombo)
+
+		self.addAlgOptions()
+		QObject.connect(self.algCombo, SIGNAL("currentIndexChanged(int)"), self.algorithmChanged)
 
 		spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 		layout.addItem(spacer)
 
-		self.plotBtn = QPushButton("Plot", self)
-		QObject.connect( self.plotBtn, SIGNAL("clicked()"), self.plot )
-		layout.addWidget(self.plotBtn)
+		self.toAsciiBtn = QPushButton("Save to file", self)
+		QObject.connect( self.toAsciiBtn, SIGNAL("clicked()"), self.toAscii )
+		layout.addWidget(self.toAsciiBtn)
+
+		self.plotMapBtn = QPushButton("Plot map", self)
+		QObject.connect( self.plotMapBtn, SIGNAL("clicked()"), self.plotMap )
+		layout.addWidget(self.plotMapBtn)
+
+		self.plotDataBtn = QPushButton("Cumulative plot", self)
+		QObject.connect( self.plotDataBtn, SIGNAL("clicked()"), self.plotData )
+		layout.addWidget(self.plotDataBtn)
 
 		self.loadAsLayerBtn = QPushButton("Add to canvas", self)
 		QObject.connect( self.loadAsLayerBtn, SIGNAL("clicked()"), self.loadAsLayer )
 		layout.addWidget(self.loadAsLayerBtn)
 
 
-	def decluster(self, matrix):
+	def addAlgOptions(self):
+		self.stacked = QStackedWidget(self)
+		self.layout().addWidget( self.stacked )
+
+		widget = QWidget(self)
+		layout = QVBoxLayout(widget)
+		self.stacked.addWidget(widget)
+
+		label = QLabel("Foreshock time window", self)
+		layout.addWidget(label)
+
+		self.timeWinGardner = QLineEdit("0.0", self)
+		validator = QDoubleValidator(self)
+		validator.setBottom( 0 )
+		self.timeWinGardner.setValidator( validator )
+		layout.addWidget(self.timeWinGardner)
+
+		widget = QWidget(self)
+		layout = QVBoxLayout(widget)
+		self.stacked.addWidget(widget)
+
+		label = QLabel("Fixed time window (days)", self)
+		layout.addWidget(label)
+
+		self.timeWinAfteran = QLineEdit("60.0", self)
+		validator = QDoubleValidator(self)
+		validator.setBottom( 0 )
+		self.timeWinAfteran.setValidator( validator )
+		layout.addWidget(self.timeWinAfteran)
+
+	def timeWinEdit(self):
+		if self.algCombo.currentIndex() == 0:
+			return self.timeWinGardner
+		else:
+			return self.timeWinAfteran
+
+	def algorithmChanged(self, index):
+		self.stacked.setCurrentIndex( index )
+		if index == 0:
+			# set GardnerKnopoff as default window option
+			self.winOptCombo.setCurrentIndex( 0 )
+
+		elif index == 1:
+			# set Uhrhammer as default window option
+			self.winOptCombo.setCurrentIndex( 1 )
+
+
+	def decluster(self, *argv, **kwargs):
 		""" This method runs decluster routine on the passed data. """
-		raise NotImplemented
+		if self.algCombo.currentIndex() == 0:
+			return self.gardner_knopoff_decluster(*argv, **kwargs)
+		else:
+			return self.afteran_decluster(*argv, **kwargs)
+
+	def gardner_knopoff_decluster(self, matrix):
+		window_opt = unicode(self.winOptCombo.currentText())
+		fs_time_prop = float(self.timeWinEdit().text())
+
+		from .mtoolkit.scientific.declustering import gardner_knopoff_decluster
+		return gardner_knopoff_decluster(matrix, window_opt, fs_time_prop)
+
+	def afteran_decluster(self, matrix):
+		window_opt = unicode(self.winOptCombo.currentText())
+		time_window = float(self.timeWinEdit().text())
+
+		from .mtoolkit.scientific.declustering import afteran_decluster
+		return afteran_decluster(matrix, window_opt, time_window)
+
 
 	@staticmethod
 	def _fromAlgOutputData(vcl, vmain_shock, flagvector):
@@ -62,8 +157,8 @@ class DeclusterWdg(QWidget):
 				**vcl_info** ndarray with columns containing:
 					cluster number, cluster event count """
 
-		vncl_idx = np.flatnonzero(flagvector == 0)	# non-clustered events indexes in vcl
-		vcl_num = vcl[vncl_idx]	# cluster number of non-clustered events in vmain_shock 
+		vncl_idx = np.flatnonzero(flagvector == 0)	# mainshocks events indexes in vcl
+		vcl_num = vcl[vncl_idx]	# cluster number of mainshocks events in vmain_shock 
 
 		# get the count of events belong to each cluster (position 0 contains non-clustered events count) 
 		vcl_evcnt = np.bincount(vcl)
@@ -98,7 +193,7 @@ class DeclusterWdg(QWidget):
 		# convert QVariant objects to proper values
 		def toDateParts(date):
 			""" convert QVariant date object to (year, month, day) tuple """
-			d = date.toDate().toPyDate()
+			d = Utils.valueFromQVariant(date)
 			return d.year, d.month, d.day
 
 		year, month, day = np.vectorize(toDateParts)(data[:, 3])
@@ -110,6 +205,29 @@ class DeclusterWdg(QWidget):
 		matrix[:, 3:6] = np.vectorize(lambda x: x.toDouble()[0])(data[:, 0:3])
 
 		return matrix
+
+	def requestData(self, fieldkeys):
+		data, panMap, indexes = [], {}, []
+		
+		# ask for populating data and panMap objects
+		self.emit( SIGNAL("dataRequested"), data, panMap )
+
+		if len(data) <= 0:
+			return
+
+		# get indexes of fields required to execute the algorithm
+		for f in fieldkeys:
+			try:
+				indexes.append( panMap[f] )
+			except KeyError:
+				QMessageBox.warning(self, "Processing", u"Cannot find the field containing the %s. Such field is required to execute the selected algorithm." % f)
+				return
+
+		# convert input data to a matrix
+		data = np.array(data)
+
+		return data, panMap, indexes
+
 
 	def loadAsLayer(self):
 		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
@@ -125,25 +243,12 @@ class DeclusterWdg(QWidget):
 			QApplication.restoreOverrideCursor()
 
 	def _loadAsLayer(self):
-		data, panMap = [], {}
-
-		# ask for populating data and panMap objects
-		self.emit( SIGNAL("dataRequested"), data, panMap )
-
-		if len(data) <= 0:
+		req = self.requestData( ['longitude','latitude','magnitude','date'] )
+		if req is None:
 			return
-
-		# get indexes of fields required to execute the algorithm
-		indexes = []
-		for f in ['longitude','latitude','magnitude','date']:
-			try:
-				indexes.append( panMap[f] )
-			except KeyError:
-				QMessageBox.warning(self, "Processing", u"Cannot find the field containing the %s. Such field is required to execute the selected algorithm." % f)
-				return
+		data, panMap, indexes = req
 
 		# convert input data to the matrix used to feed the algorithm
-		data = np.array(data)
 		inmatrix = DeclusterWdg._toAlgInputData( data[:, indexes] )
 
 		# run the algorithm, then get clusters data
@@ -160,7 +265,7 @@ class DeclusterWdg(QWidget):
 		# set the events layer as current one to avoid nested groups
 		Utils.iface.setActiveLayer( Utils.eventsVl() )
 		legend = Utils.iface.legendInterface()
-		groupN = legend.addGroup( self.algorithmName )
+		groupN = legend.addGroup( self.algCombo.currentText() )
 
 		# now create both the original and clusters layers
 		layers = {'original' : original, 'clusters' : clusters}
@@ -170,12 +275,13 @@ class DeclusterWdg(QWidget):
 			Utils.addVectorLayer( vl )
 
 			# finally put the layer into the group
-			# NB: the group number is incremented by one because the layer 
-			# was added above the group in the legend
-			legend.moveLayer(vl, groupN+1)
+			if QGis.QGIS_VERSION[0:3] <= '1.8':
+				# XXX the group index is incremented by one because the layer 
+				# was added above the group in the legend
+				groupN = groupN+1
+			legend.moveLayer(vl, groupN)
 
 		legend.setGroupExpanded( groupN, False )
-
 
 	def _createOutputLayer(self, name, data, longFieldIdx, latFieldIdx, isOrigLayer=False):
 		""" create the declustered event layer:
@@ -194,7 +300,7 @@ class DeclusterWdg(QWidget):
 
 		# create the layer
 		vl = Utils.createMemoryLayer( 'Point', 'epsg:4326', fields, name )
-		if not vl:
+		if vl is None:
 			return
 
 		# add features
@@ -222,10 +328,18 @@ class DeclusterWdg(QWidget):
 		return vl
 
 
-	def plot(self):
+	def plotMap(self):
+		self.plot(self.MAP_PLOT)
+
+	def plotData(self):
+		self.plot(self.CUMULATIVE_PLOT)
+
+	def plot(self, plotType):
 		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
 		try:
-			dlg = self._plot()
+			dlg = self._plot(plotType)
+			if dlg is None:
+				return
 		finally:
 			QApplication.restoreOverrideCursor()
 
@@ -234,26 +348,13 @@ class DeclusterWdg(QWidget):
 		dlg.exec_()
 		dlg.deleteLater()
 
-	def _plot(self):
-		data, panMap = [], {}
-
-		# ask for populating data and panMap objects
-		self.emit( SIGNAL("dataRequested"), data, panMap )
-
-		if len(data) <= 0:
+	def _plot(self, plotType):
+		req = self.requestData( ['longitude','latitude','magnitude','date'] )
+		if req is None:
 			return
+		data, panMap, indexes = req
 
-		# get indexes of fields required to execute the algorithm
-		indexes = []
-		for f in ['longitude','latitude','magnitude','date']:
-			try:
-				indexes.append( panMap[f] )
-			except KeyError:
-				QMessageBox.warning(self, "Processing", u"Cannot find the field containing the %s. Such field is required to execute the selected algorithm." % f)
-				return
-
-		# convert input data to the matrix to feed the algorithm
-		data = np.array(data)
+		# convert input data to the matrix used to feed the algorithm
 		inmatrix = DeclusterWdg._toAlgInputData( data[:, indexes] )
 
 		# run the algorithm, then get clusters data
@@ -261,107 +362,83 @@ class DeclusterWdg(QWidget):
 		origdata_clnum, cldata_indexes, cl_info = DeclusterWdg._fromAlgOutputData( *out_args )
 
 		# create the plot dialog
-		plot = DeclusteredPlotDlg( parent=None, title="Declustered", labels=("Longitude", "Latitude") )
-
 		# fill the plot using inmatrix instead of data, so long/lat values are 
 		# already converted to double
-		plot.setData( inmatrix[cldata_indexes, 3], inmatrix[cldata_indexes, 4], info=cl_info[:, 1] )
+		if plotType == self.MAP_PLOT:
+			plot = DeclusteredPlotDlg( parent=None, title="Declustered", labels=("Longitude", "Latitude") )
+			plot.plotMap( inmatrix[cldata_indexes, 3], inmatrix[cldata_indexes, 4], info=cl_info[:, 1] )
+		else:
+			# cumulative plot
+			plot = DeclusteredPlotDlg( parent=None, title="Declustered", labels=("Time", "Cumulative events") )
+			orig_date = np.vectorize(lambda x: Utils.valueFromQVariant(x))(data[:, indexes[3]])
+			decl_date = np.vectorize(lambda x: Utils.valueFromQVariant(x))(data[cldata_indexes, indexes[3]])
+			plot.plotData( orig_date, decl_date )
 
 		return plot
 
-class GardnerKnopoffDeclusterWdg(DeclusterWdg):
 
-	def __init__(self, parent=None):
-		DeclusterWdg.__init__(self, parent)
-		self.setupUi()
-		self.algorithmName = "gardner_knopoff_decluster"
+	def toAscii(self):
+		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+		try:
+			ret = self._toAscii()
+			if ret is None:
+				return
+		finally:
+			QApplication.restoreOverrideCursor()
 
-	def setupUi(self):
-		layout = QVBoxLayout(self)
+		# store the output to ascii file
+		filename = QFileDialog.getSaveFileName( self, "Choose where to save the output", QString(), "ASCII file (*.txt)" )
+		if filename == "":
+			return
 
-		label = QLabel("Time dist window", self)
-		layout.addWidget(label)
+		if filename[-4:] != ".txt":
+			filename += ".txt"
 
-		self.combo = QComboBox(self)
-		self.combo.addItems( ["GardnerKnopoff", "Gruenthal", "Uhrhammer" ] )
-		layout.addWidget(self.combo)
+		vcl, vmain_shock, flagvector = ret
 
-		label = QLabel("Foreshock time window", self)
-		layout.addWidget(label)
-
-		self.edit = QLineEdit("0.0", self)
-		validator = QDoubleValidator(self)
-		validator.setBottom( 0 )
-		self.edit.setValidator( validator )
-		layout.addWidget(self.edit)
-
-		self.setLayout(layout)
-		return DeclusterWdg.setupUi(self)
-
-	def decluster(self, matrix):
-		return self.gardner_knopoff_decluster(matrix)
-
-	def gardner_knopoff_decluster(self, matrix):
-		window_opt = unicode(self.combo.currentText())
-		fs_time_prop = float(self.edit.text())
-
-		from .mtoolkit.scientific.declustering import gardner_knopoff_decluster
-		return gardner_knopoff_decluster(matrix, window_opt, fs_time_prop)
+		with open( unicode(filename), 'w' ) as fout:
+			fout.write( "vcl:\n%s" % repr(vcl) )
+			fout.write( "\n\nv_mainshock:\n%s" % repr(vmain_shock) )
+			fout.write( "\n\nflag_vector:\n%s" % repr(flagvector) )
 
 
-class AfteranDeclusterWdg(DeclusterWdg):
+	def _toAscii(self):
+		req = self.requestData( ['longitude','latitude','magnitude','date'] )
+		if req is None:
+			return
+		data, panMap, indexes = req
 
-	def __init__(self, parent=None):
-		DeclusterWdg.__init__(self, parent)
-		self.setupUi()
-		self.algorithmName = "afteran_decluster"
+		# convert input data to the matrix used to feed the algorithm
+		inmatrix = DeclusterWdg._toAlgInputData( data[:, indexes] )
 
-	def setupUi(self):
-		layout = QVBoxLayout(self)
-
-		label = QLabel("Time dist window", self)
-		layout.addWidget(label)
-
-		self.combo = QComboBox(self)
-		self.combo.addItems( ["GardnerKnopoff", "Gruenthal", "Uhrhammer" ] )
-		layout.addWidget(self.combo)
-
-		label = QLabel("Time window (in days)", self)
-		layout.addWidget(label)
-
-		self.edit = QLineEdit("60.0", self)
-		validator = QDoubleValidator(self)
-		validator.setBottom( 0 )
-		self.edit.setValidator( validator )
-		layout.addWidget(self.edit)
-
-		self.setLayout(layout)
-		return DeclusterWdg.setupUi(self)
-
-	def decluster(self, matrix):
-		return self.afteran_decluster(matrix)
-
-	def afteran_decluster(self, matrix):
-		window_opt = unicode(self.combo.currentText())
-		time_window = float(self.edit.text())
-
-		from .mtoolkit.scientific.declustering import afteran_decluster
-		return afteran_decluster(matrix, window_opt, time_window)
+		# run the algorithm
+		vcl, vmain_shock, flagvector = self.decluster( inmatrix )
+		return vcl, vmain_shock, flagvector
 
 
 
 from plot_wdg import PlotDlg, PlotWdg
 
 class DeclusteredPlotDlg(PlotDlg):
+
 	def createPlot(self, *args, **kwargs):
 		return DeclusteredPlotWdg(*args, **kwargs)
 
+	def plotMap(self, *argv, **kwargs):
+		self.plot.plotMap(*argv, **kwargs)
+
+	def plotData(self, *argv, **kwargs):
+		self.plot.plotData(*argv, **kwargs)
+
 class DeclusteredPlotWdg(PlotWdg):
 	def _plot(self):
-		""" convert query_objectsvalues, then create the plot """
+		pass
+
+	def plotMap(self, x, y, info):
+		""" convert values, then create the plot """
 
 		# set size based on cluster size
-		size = self.info	#self.info[:, 0]
+		size = info	#self.info[:, 0]
 		minsize, maxsize = 	np.min(size), np.max(size)+1
 		interval = (maxsize - minsize) / 10.0
 		# when index is 0 it displays only the events with size equals to minsize
@@ -374,6 +451,23 @@ class DeclusteredPlotWdg(PlotWdg):
 			vsel = np.logical_and(size > val, size <= nextval)
 			if any(vsel):
 				symb_size = val*5 + 10
-				items = self.axes.scatter(self.x[vsel], self.y[vsel], s=symb_size)
+				items = self.axes.scatter(x[vsel], y[vsel], s=symb_size)
 				self.collections.append( items )
+
+	def plotData(self, orig, decl):
+		""" convert values, then create the plot """
+		# plot the original catalog
+		n, bins, patches = self._callPlotFunc('hist', orig, color='b', 
+											histtype='step', cumulative=True)
+		patches[0].set_xy(patches[0].get_xy()[:-1])		# hack! remove the vertical line
+
+		# plot the declustered catalog
+		n, bins, patches = self._callPlotFunc('hist', decl, color='k',
+											histtype='step', cumulative=True)
+		patches[0].set_xy(patches[0].get_xy()[:-1])		# hack! remove the vertical line
+
+		self.axes.axis('tight')
+
+		self.axes.legend(('Original catalog', 'De-clustered catalog'), 
+				'upper center', shadow=False, fancybox=False)
 
