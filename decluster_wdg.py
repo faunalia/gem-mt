@@ -261,11 +261,14 @@ class DeclusterWdg(QWidget):
 		# original data: append the cluster number each the event belongs to
 		original = np.concatenate( (data, origdata_clnum.reshape((-1, 1))), axis=1 )
 
-		# create a group containing this routine's output layers, but first 
-		# set the events layer as current one to avoid nested groups
-		Utils.iface.setActiveLayer( Utils.eventsVl() )
+		# create a group containing this routine's output layers
+		addGroupFlag = QGis.QGIS_VERSION[0:3] <= '1.8'
 		legend = Utils.iface.legendInterface()
-		groupN = legend.addGroup( self.algCombo.currentText() )
+
+		if addGroupFlag:
+			# set the events layer as current one to avoid nested groups
+			Utils.iface.setActiveLayer( Utils.eventsVl() )
+			groupN = legend.addGroup( self.algCombo.currentText() )
 
 		# now create both the original and clusters layers
 		layers = {'original' : original, 'clusters' : clusters}
@@ -273,15 +276,17 @@ class DeclusterWdg(QWidget):
 			# make the layer from scratch, then add it to the canvas
 			vl = self._createOutputLayer( name, datamatrix, panMap['longitude'], panMap['latitude'], name == 'original' )
 			Utils.addVectorLayer( vl )
+			legend.setLayerVisible( vl, name != 'original' )
 
 			# finally put the layer into the group
-			if QGis.QGIS_VERSION[0:3] <= '1.8':
+			if addGroupFlag:
 				# XXX the group index is incremented by one because the layer 
 				# was added above the group in the legend
 				groupN = groupN+1
-			legend.moveLayer(vl, groupN)
+				legend.moveLayer(vl, groupN)
 
-		legend.setGroupExpanded( groupN, False )
+		if addGroupFlag:
+			legend.setGroupExpanded( groupN, False )
 
 	def _createOutputLayer(self, name, data, longFieldIdx, latFieldIdx, isOrigLayer=False):
 		""" create the declustered event layer:
