@@ -366,7 +366,7 @@ class DeclusterWdg(QWidget):
 		# already converted to double
 		if plotType == self.MAP_PLOT:
 			plot = DeclusteredPlotDlg( parent=None, title="Declustered", labels=("Longitude", "Latitude") )
-			plot.plotMap( inmatrix[cldata_indexes, 3], inmatrix[cldata_indexes, 4], info=cl_info[:, 1] )
+			plot.plotMap( inmatrix[cldata_indexes, 3], inmatrix[cldata_indexes, 4], size=cl_info[:, 1] )
 		else:
 			# cumulative plot
 			plot = DeclusteredPlotDlg( parent=None, title="Declustered", labels=("Time", "Cumulative events") )
@@ -434,25 +434,26 @@ class DeclusteredPlotWdg(PlotWdg):
 	def _plot(self):
 		pass
 
-	def plotMap(self, x, y, info):
+	def plotMap(self, x, y, size):
 		""" convert values, then create the plot """
 
-		# set size based on cluster size
-		size = info	#self.info[:, 0]
-		minsize, maxsize = 	np.min(size), np.max(size)+1
-		interval = (maxsize - minsize) / 10.0
-		# when index is 0 it displays only the events with size equals to minsize
-		steps = np.arange(minsize-interval, maxsize+interval, interval)
+		# marker's size depends on cluster's area
+		area_size = np.sqrt( np.array( size ) )
 
-		for index in range(0, len(steps)-1):
-			val, nextval = steps[index], steps[index+1]
-			if val < minsize: val = 0
+		# compute range_count value to be <= 10
+		dist = np.max( area_size ) - np.min( area_size )
+		max_size = min( np.ceil(dist), 10 )
 
-			vsel = np.logical_and(size > val, size <= nextval)
-			if any(vsel):
-				symb_size = val*5 + 10
-				items = self.axes.scatter(x[vsel], y[vsel], s=symb_size)
-				self.collections.append( items )
+		# compute min and max sizes
+		min_size = 8
+		max_size = range_count * 5
+
+		# re-arrange size from min_size to max_size
+		marker_size = (area_size-1) / dist * max_size
+		marker_size += min_size
+
+		# plot now!
+		self.axes.scatter(x, y, s=marker_size)
 
 	def plotData(self, orig, decl):
 		""" convert values, then create the plot """
@@ -466,8 +467,8 @@ class DeclusteredPlotWdg(PlotWdg):
 											histtype='step', cumulative=True)
 		patches[0].set_xy(patches[0].get_xy()[:-1])		# hack! remove the vertical line
 
-		self.axes.axis('tight')
+		self.axes.set_ylim(bottom=0)
 
 		self.axes.legend(('Original catalog', 'De-clustered catalog'), 
-				'upper center', shadow=False, fancybox=False)
+				'upper left', shadow=False, fancybox=False)
 
