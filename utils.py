@@ -23,7 +23,7 @@ email                : brush.tyler@gmail.com
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from qgis.core import QGis, QgsMapLayerRegistry, QgsVectorLayer
+from qgis.core import QGis, QgsMapLayerRegistry, QgsVectorLayer, QgsGeometry
 
 import qgis.utils
 
@@ -194,6 +194,18 @@ class Utils:
 
 		return unicode(s)
 
+	@staticmethod
+	def distanceAlongProfile(line, point):
+		""" Calculate the distance of the point along the profile.
+
+		    It uses the pythagorean theorem to get the distance.
+		    It's really approximated (since ellipsoid is not considered at 
+		    all) but distances are in a small range (~200m). """
+		import math
+		cat1 = line.distance( point )
+		start_point = QgsGeometry.fromPoint( line.vertexAt( 0 ) )
+		hip = start_point.distance( point )
+		return math.sqrt( hip*hip - cat1*cat1 )
 
 
 class LayerStyler:
@@ -213,7 +225,7 @@ class LayerStyler:
 		# make a symbol for each range
 		rangeV2List = []
 		for min_val, max_val, attrs in ranges:
-			if attrs.has_key('label'):
+			if 'label' in attrs:
 				label = attrs['label']
 			#elif min_val == None:
 			#	label = u'%s <= %s' % (field, max_val)
@@ -223,12 +235,16 @@ class LayerStyler:
 				label = u'%s < %s <= %s' % (min_val, field, max_val)
 	
 			symbolV2 = QgsSymbolV2.defaultSymbol( vl.geometryType() )
-			col = attrs.get('color', None)
-			if col is not None:
-				symbolV2.setColor( col )
-			size = attrs.get('size', None)
-			if size is not None:
-				symbolV2.setSize( size )
+			if 'color' in attrs:
+				symbolV2.setColor( attrs['color'] )
+			if 'size' in attrs:
+				symbolV2.setSize( attrs['size'] )
+
+			# from QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods:
+			# ScaleArea (default) and ScaleDiameter
+			if hasattr(symbolV2, 'setScaleMethod'):
+				symbolV2.setScaleMethod( QgsSymbolV2.ScaleDiameter )
+
 			rangeV2 = QgsRendererRangeV2(min_val, max_val, symbolV2, label)
 			rangeV2List.append(rangeV2)
 
@@ -236,9 +252,8 @@ class LayerStyler:
 		renderer = QgsGraduatedSymbolRendererV2( field, rangeV2List )
 
 		# set size scale field
-		sizeScaleField = kwargs.get('sizeScaleField', None)
-		if sizeScaleField:
-			renderer.setSizeScaleField( sizeScaleField )
+		if 'sizeScaleField' in kwargs:
+			renderer.setSizeScaleField( kwargs['sizeScaleField'] )
 
 		# set the renderer for the layer
 		vl.setRendererV2( renderer )
@@ -352,16 +367,14 @@ class LayerStyler:
 		categoryV2List = []
 		for label, value, attrs in categories:
 			symbolV2 = QgsSymbolV2.defaultSymbol( vl.geometryType() )
-			col = attrs.get('color', None)
-			if col is not None:
-				symbolV2.setColor( col )
-			size = attrs.get('size', None)
-			if size is not None:
-				symbolV2.setSize( size )
+			if 'color' in attrs:
+				symbolV2.setColor( attrs['color'] )
+			if 'size' in attrs:
+				symbolV2.setSize( attrs['size'] )
 
+			# from QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods:
+			# ScaleArea (default) and ScaleDiameter
 			if hasattr(symbolV2, 'setScaleMethod'):
-				# from QGis > 1.8 QgsSymbolV2 has 2 scale methods:
-				# ScaleArea (default) and ScaleDiameter
 				symbolV2.setScaleMethod( QgsSymbolV2.ScaleDiameter )
 
 			categoryV2 = QgsRendererCategoryV2( value, symbolV2, label )
@@ -371,9 +384,8 @@ class LayerStyler:
 		renderer = QgsCategorizedSymbolRendererV2( field, categoryV2List )
 
 		# set size scale field
-		sizeScaleField = kwargs.get('sizeScaleField', None)
-		if sizeScaleField:
-			renderer.setSizeScaleField( sizeScaleField )
+		if 'sizeScaleField' in kwargs:
+			renderer.setSizeScaleField( kwargs['sizeScaleField'] )
 
 		# set the renderer for the layer
 		vl.setRendererV2( renderer )
@@ -394,10 +406,13 @@ class LayerStyler:
 		props = {}
 
 		if sizeScaleField is None:
+			# use magnitude as default size scale field
 			sizeScaleFieldIndex = key2indexFieldMap.get('magnitude', None)
 		elif isinstance(sizeScaleField, int):
+			# it's the field index
 			sizeScaleFieldIndex = sizeScaleField
 		else:
+			# try to search the field using its name
 			for index, fld in fields.iteritems():
 				if fld.name() == sizeScaleField:
 					sizeScaleFieldIndex = index
@@ -415,20 +430,18 @@ class LayerStyler:
 		from qgis.core import QgsSymbolV2, QgsSingleSymbolRendererV2
 
 		symbolV2 = QgsSymbolV2.defaultSymbol( vl.geometryType() )
-		col = kwargs.get('color', None)
-		if col is not None:
-			symbolV2.setColor( col )
+		if 'color' in kwargs:
+			symbolV2.setColor( kwargs['color'] )
 		size = kwargs.get('size', None)
-		if size is not None:
-			symbolV2.setSize( size )
+		if 'size' in kwargs:
+			symbolV2.setSize( kwargs['size'] )
 
 		# create the renderer
 		renderer = QgsSingleSymbolRendererV2( symbolV2 )
 
 		# set size scale field
-		sizeScaleField = kwargs.get('sizeScaleField', None)
-		if sizeScaleField:
-			renderer.setSizeScaleField( sizeScaleField )
+		if 'sizeScaleField' in kwargs:
+			renderer.setSizeScaleField( kwargs['sizeScaleField'] )
 
 		# set the renderer for the layer
 		vl.setRendererV2( renderer )

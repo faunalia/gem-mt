@@ -365,7 +365,8 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			geom = QgsGeometry.fromPoint(geom.asPoint())
 
 			# store distance and depth values
-			x.append( Utils.toDisplayedSize( midlineGeom.distance( geom ) ) )	# convert to Km/Kft/degrees
+			dist = Utils.distanceAlongProfile( midlineGeom, geom )
+			x.append( Utils.toDisplayedSize( dist )	)	# convert to Km/Kft/degrees
 			y.append( f.attributeMap()[ depthIndex ].toDouble()[0] * -1 )
 			info.append( f.id() )
 
