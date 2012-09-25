@@ -328,6 +328,7 @@ class DeclusterWdg(QWidget):
 		if isOrigLayer:
 			LayerStyler.setSimpleStyle( vl, color=QColor('blue'), size=1.0 )
 		else:
+			# we need to scale markers by area
 			LayerStyler.setDeclusteredStyle( vl, sizeField )
 
 		return vl
@@ -447,15 +448,14 @@ class DeclusteredPlotWdg(PlotWdg):
 
 		# compute range_count value to be <= 10
 		dist = np.max( area_size ) - np.min( area_size )
-		max_size = min( np.ceil(dist), 10 )
+		range_count = min( np.ceil(dist), 10 )
 
-		# compute min and max sizes
+		# define min and max sizes
 		min_size = 8
-		max_size = range_count * 5
+		max_size = range_count * 20
 
 		# re-arrange size from min_size to max_size
-		marker_size = (area_size-1) / dist * max_size
-		marker_size += min_size
+		marker_size = (area_size-1) / dist * max_size + min_size
 
 		# plot now!
 		self.axes.scatter(x, y, s=marker_size)
