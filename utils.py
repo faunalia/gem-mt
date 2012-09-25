@@ -208,6 +208,12 @@ class Utils:
 		return math.sqrt( hip*hip - cat1*cat1 )
 
 
+
+import math
+from qgis.core import QgsSymbolV2
+from qgis.core import QgsGraduatedSymbolRendererV2, QgsRendererRangeV2
+from qgis.core import QgsCategorizedSymbolRendererV2, QgsRendererCategoryV2
+
 class LayerStyler:
 
 	@staticmethod
@@ -220,7 +226,6 @@ class LayerStyler:
 	@staticmethod
 	def setGraduatedStyle(vl, ranges, field, **kwargs):
 		""" set a graduated style """
-		from qgis.core import QgsSymbolV2, QgsGraduatedSymbolRendererV2, QgsRendererRangeV2
 
 		# make a symbol for each range
 		rangeV2List = []
@@ -242,8 +247,8 @@ class LayerStyler:
 
 			# from QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods:
 			# ScaleArea (default) and ScaleDiameter
-			if hasattr(symbolV2, 'setScaleMethod'):
-				symbolV2.setScaleMethod( QgsSymbolV2.ScaleDiameter )
+			if 'sizeScaleMethod' in kwargs and hasattr(symbolV2, 'setScaleMethod'):
+				symbolV2.setScaleMethod( kwargs['sizeScaleMethod'] )
 
 			rangeV2 = QgsRendererRangeV2(min_val, max_val, symbolV2, label)
 			rangeV2List.append(rangeV2)
@@ -261,6 +266,18 @@ class LayerStyler:
 
 	@staticmethod
 	def setDeclusteredStyle(vl, sizeField):
+		color = QColor('blue')
+
+		# since QGis > 1.8 QgsMarkerSymbolV2 has 2 size scale methods:
+		# ScaleArea and ScaleDiameter.
+		# Let's use ScaleArea with a single symbol renderer!
+		if QGis.QGIS_VERSION[0:3] > '1.8':
+			# get magnitude field
+			Utils.setSimpleStyle( vl, color=color, size=1.0, sizeScaleField=sizeField, sizeScaleMethod=QgsSymbolLayer.ScaleArea )
+			return
+
+		# in Qgis <= 1.8 we have to use a graduated renderer with 
+		# proper ranges to emulate ScaleArea size scale method.
 		if vl.featureCount() == 0:
 			return	# cannot calcolate ranges values
 
@@ -278,16 +295,27 @@ class LayerStyler:
 		if not minOk or not maxOk:
 			return
 
-		minVal = int(minVal) - 1
-		maxVal = int(maxVal) + 1
+		minVal = math.floor(minVal)
+		maxVal = math.ceil(maxVal)
 
-		# compute value ranges
 		count = min(6, maxVal-minVal)	# how many ranges?
-		step = int(float(maxVal - minVal) / count)	# step size
-		ticks = range(minVal, maxVal+step, step)
+
+		# calculate the step size
+		steps = [i+1 for i in range(count)]	# 1,2,3,4,5,6,...
+		stepSize = float(maxVal - minVal) / sum(steps)
+
+		# define the ranges
 		ranges = []
 		for i in range(count):
-			ranges.append( (ticks[i], ticks[i+1], {'color':QColor('blue'), 'size':1+i} ) )
+			step = stepSize * steps[i]
+			if i == 0:
+				values = (minVal, minVal + step)
+			elif i == count-1:
+				values = (lastVal, maxVal)
+			else:
+				values = (lastVal, lastVal + step)
+			ranges.append( (int(values[0]), int(values[1]), {'color':color, 'size':1+i} ) )
+			lastVal = values[1]
 
 		# set the layer style
 		LayerStyler.setGraduatedStyle( vl, ranges, sizeField )
@@ -301,13 +329,12 @@ class LayerStyler:
 		# get involved fields to set layer style
 		pr = vl.dataProvider()
 		fields = pr.fields()
-		key2indexFieldMap = Utils.key2indexFieldMap( fields )
+		key2index = Utils.key2indexFieldMap( fields )
 
-		depthFieldIndex = key2indexFieldMap.get('depth', None)
+		depthFieldIndex = key2index.get('depth', None)
 		if depthFieldIndex is None:
 			return
-
-		depthFieldName = fields[depthFieldIndex].name()
+		depthFieldName = fields[ depthFieldIndex ].name()
 
 		# let's reset the subset string to get real min/max
 		pr.setSubsetString("")
@@ -317,12 +344,13 @@ class LayerStyler:
 		if not minOk or not maxOk:
 			return
 
-		minVal = int(minDepth) - 1
-		maxVal = int(maxDepth) + 1
+		minVal = math.floor(minDepth)
+		maxVal = math.ceil(maxDepth)
 
 		# define value ranges which raise esponentially up
 		# how many ranges?
 		count = 1
+		# TODO: use log2() instead
 		while 2**count < maxVal - minVal:
 			count += 1
 		count = min(6, count)
@@ -337,22 +365,25 @@ class LayerStyler:
 		# define the ranges
 		ranges = []
 		for i, col in enumerate(colors):
-			step = int(stepSize * steps[i])
+			step = stepSize * steps[i]
 			if i == 0:
 				values = (minVal, minVal + step)
 			elif i == count-1:
 				values = (lastVal, maxVal)
 			else:
 				values = (lastVal, lastVal + step)
-			ranges.append( (values[0], values[1], {'color':col, 'size':0.8} ) )
+			ranges.append( (int(values[0]), int(values[1]), {'color':col, 'size':0.8} ) )
 			lastVal = values[1]
 
 		# put advanced rendering options into the props dictionary
 		props = {}
 
-		magnitudeFieldIndex = key2indexFieldMap.get('magnitude', None)
-		if magnitudeFieldIndex is not None:
-			props['sizeScaleField'] = fields[magnitudeFieldIndex].name()
+		try:
+			magnFieldIdx = key2index['magnitude']
+			props['sizeScaleField'] = fields[ magnFieldIdx ].name()
+			props['sizeScaleMethod'] = QgsSymbolV2.ScaleDiameter
+		except:
+			pass
 
 		# set the layer style
 		LayerStyler.setGraduatedStyle( vl, ranges, depthFieldName, **props )
@@ -361,8 +392,6 @@ class LayerStyler:
 	@staticmethod
 	def setCategorizedStyle(vl, categories, field, **kwargs):
 		""" set a categorized style """
-		from qgis.core import QgsSymbolV2, QgsCategorizedSymbolRendererV2, QgsRendererCategoryV2
-
 		# make a symbol for each category
 		categoryV2List = []
 		for label, value, attrs in categories:
@@ -374,8 +403,8 @@ class LayerStyler:
 
 			# from QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods:
 			# ScaleArea (default) and ScaleDiameter
-			if hasattr(symbolV2, 'setScaleMethod'):
-				symbolV2.setScaleMethod( QgsSymbolV2.ScaleDiameter )
+			if 'sizeScaleMethod' in kwargs and hasattr(symbolV2, 'setScaleMethod'):
+				symbolV2.setScaleMethod( kwargs['sizeScaleMethod'] )
 
 			categoryV2 = QgsRendererCategoryV2( value, symbolV2, label )
 			categoryV2List.append( categoryV2 )
@@ -392,10 +421,7 @@ class LayerStyler:
 		Utils.iface.legendInterface().refreshLayerSymbology(vl)
 
 	@staticmethod
-	def setClassifiedStyle(vl, field, size=1.0, sizeScaleField=None):
-		fields = vl.dataProvider().fields()
-		key2indexFieldMap = Utils.key2indexFieldMap( fields )
-
+	def setClassifiedStyle(vl, field, size=1.0):
 		# create categories
 		categories = [
 			("shallow", "shallow", {'color':QColor("red"), 'size':size}),	# shallow earthquakes in red
@@ -405,21 +431,13 @@ class LayerStyler:
 		# put advanced rendering options into the props dictionary
 		props = {}
 
-		if sizeScaleField is None:
-			# use magnitude as default size scale field
-			sizeScaleFieldIndex = key2indexFieldMap.get('magnitude', None)
-		elif isinstance(sizeScaleField, int):
-			# it's the field index
-			sizeScaleFieldIndex = sizeScaleField
-		else:
-			# try to search the field using its name
-			for index, fld in fields.iteritems():
-				if fld.name() == sizeScaleField:
-					sizeScaleFieldIndex = index
-					break
-
-		if sizeScaleFieldIndex is not None:
-			props['sizeScaleField'] = fields[sizeScaleFieldIndex].name()
+		try:
+			fields = vl.dataProvider().fields()
+			magnFieldIdx = Utils.key2indexFieldMap( fields )['magnitude']
+			props['sizeScaleField'] = fields[ magnFieldIdx ].name()
+			props['sizeScaleMethod'] = QgsSymbolV2.ScaleDiameter
+		except KeyError:
+			pass
 
 		# set the layer style
 		LayerStyler.setCategorizedStyle( vl, categories, field, **props )
@@ -435,6 +453,11 @@ class LayerStyler:
 		size = kwargs.get('size', None)
 		if 'size' in kwargs:
 			symbolV2.setSize( kwargs['size'] )
+
+		# from QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods:
+		# ScaleArea (default) and ScaleDiameter
+		if 'sizeScaleMethod' in kwargs and hasattr(symbolV2, 'setScaleMethod'):
+			symbolV2.setScaleMethod( kwargs['sizeScaleMethod'] )
 
 		# create the renderer
 		renderer = QgsSingleSymbolRendererV2( symbolV2 )
