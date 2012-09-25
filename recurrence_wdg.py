@@ -129,7 +129,7 @@ class RecurrenceWdg(QWidget):
 		# run now!
 		from .mtoolkit.scientific.recurrence import recurrence_analysis, recurrence_table
 		stats = recurrence_analysis(year, magnitude, completeness_table, magn_window, "Weichert", reference_magn, time_window)
-		rec_table = recurrence_table(magnitude, magn_window, year)[:, (0,3)]
+		rec_table = recurrence_table(magnitude, magn_window, year)
 
 		return rec_table, stats
 
@@ -156,7 +156,7 @@ class RecurrenceWdg(QWidget):
 		# run now!
 		from .mtoolkit.scientific.recurrence import recurrence_analysis, recurrence_table
 		stats = recurrence_analysis(year, magnitude, completeness_table, magn_window, "MLE", reference_magn, None)
-		rec_table = recurrence_table(magnitude, magn_window, year)[:, (0,3)]
+		rec_table = recurrence_table(magnitude, magn_window, year)
 
 		return rec_table, stats
 
@@ -210,7 +210,7 @@ class RecurrenceWdg(QWidget):
 		# create the plot dialog displaying magnitude vs. number of events 
 		# and the line defined by bval and a_m values
 		plot = RecurrencePlotDlg( parent=None, title="Recurrence", labels=("Magnitude", "Number of earthquakes") )
-		plot.setData( recurrence_table[:, 0], recurrence_table[:, 1], info=stats )
+		plot.setData( recurrence_table[:, 0], recurrence_table[:, (1,2)], info=stats )
 
 		return plot
 
@@ -259,45 +259,35 @@ class RecurrencePlotDlg(PlotDlg):
 class RecurrencePlotWdg(PlotWdg):
 	def _plot(self):
 		""" convert values, then create the plot """
-		# cumulative plot
-		import numpy as np
-		y_cumul = np.cumsum( self.y[::-1] )[::-1]	# reversed
-		self.axes.scatter( self.x, y_cumul, marker='s', color='b' )
+		# plot the magnitude vs. cumulative number of observations
+		self.axes.plot( self.x, self.y[:, 1], ls='None', marker='s', color='w' )
 
-		# plot the magnitude vs. event count graphic
-		self.axes.scatter( self.x, self.y, marker='^', color='k' )
+		# plot the magnitude vs. number of observations
+		self.axes.plot( self.x, self.y[:, 0], ls='None', marker='^', color='k' )
 
 		# plot a line defined by bval (slope) and a_m (intersection with y axis 
 		# when Mw = 0): logN = a_m - bval*M
 		bval, sigb, a_m, siga_m = self.info
-		#print "a_m:", a_m, "bval:", bval
 
-		def limitData(a, b, lim=None):
-			if lim is None:
-				lim = (-1, 5)
+		def limitData(a, b):
+			x = np.array( np.arange(0, 10, 0.01) )
+			logy = a - x * b
 
-			xmin, xmax = (0, 10)
-			logy = None
-			while logy is None or xmax - xmin <= 3:
-				x = np.array( np.arange(xmin, xmax, 0.01) )
-				logy = a - x * b
-				#print "x:", x, "logy:", logy
-
-				# limit output y values
-				if logy[0] > lim[1]:
-					xmin += 0.1
-				if logy[1] < lim[0]:
-					xmax -= 0.1
-
-			return x, np.power(10, logy)
+			# limit output y values, this will avoid to reach inf
+			indexes = np.logical_and(logy < 200, logy > -1)
+			return x[indexes], np.power(10, logy[indexes])
 
 		l_x, l_y = limitData( a_m, bval )
-		self.axes.plot( l_x, l_y, lw=3., color='r', alpha=0.4 )
+		line = self.axes.plot( l_x, l_y, lw=3., color='r', alpha=0.4, scalex=False, scaley=False )
 
 		# plot line uncertainty bounds
-		#self.axes.plot( (0.1, 9.9), ((bval+sigb)*0.1+a_m+siga_m, (bval+sigb)*9.9+(a_m+siga_m)), lw=1., color='r', ls='--', alpha=0.8 )
-		#self.axes.plot( (0.1, 9.9), ((bval-sigb)*0.1+a_m-siga_m, (bval-sigb)*9.9+(a_m-siga_m)), lw=1., color='r', ls='--', alpha=0.8 )
+		#l_x, l_y = limitData( a_m+siga_m, bval+sigb )
+		#self.axes.plot( l_x, l_y, lw=1., color='r', ls='--', alpha=0.8 )
+		#l_x, l_y = limitData( a_m-siga_m, bval-sigb )
+		#self.axes.plot( l_x, l_y, lw=1., color='r', ls='--', alpha=0.8 )
 
 		self.axes.set_yscale("log")
-		self.axes.set_ylim(bottom=0.5)
+
+		self.axes.legend( [line], ["a: %s - sigma(a): %s\nb: %s - sigma(b): %s" % (a_m, siga_m, bval, sigb)], 
+				'upper right', shadow=False, fancybox=False )
 
