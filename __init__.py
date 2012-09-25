@@ -2,7 +2,7 @@
 
 """
 /***************************************************************************
-Name			 	 : GEM Modellers Toolkit plugin (GEM-MT)
+Name                 : GEM Modellers Toolkit plugin (GEM-MT)
 Description          : Analysing and Processing Earthquake Catalogue Data
 Date                 : Jun 18, 2012 
 copyright            : (C) 2012 by Giuseppe Sucameli (Faunalia)
@@ -33,7 +33,7 @@ def icon():
 	return "icons/logo.png"
 
 def version():
-	return "0.0.8"
+	return "0.0.9"
 
 def qgisMinimumVersion():
 	return "1.5"
