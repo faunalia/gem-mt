@@ -229,7 +229,7 @@ class ScatterPlotWdg(PlotWdg):
 class PlotDlg(QtGui.QDialog):
 	def __init__(self, parent, *args, **kwargs):
 		QtGui.QDialog.__init__(self, parent, QtCore.Qt.Window)
-		self.setWindowTitle("Plot dialog")
+		self.setWindowTitle( kwargs.get('title', 'Plot dialog') )
 
 		layout = QtGui.QVBoxLayout(self)
 
