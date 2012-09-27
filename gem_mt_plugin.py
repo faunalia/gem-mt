@@ -45,21 +45,21 @@ class GEM_MT_Plugin:
 
 	def initGui(self):
 		# create the actions
-		self.loadCsvAction = QAction( "Load CSV file", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/loadCsv.png" )
+		self.loadCsvAction = QAction( QIcon( ":/gem-mt_plugin/icons/csv" ), "Load CSV file", self.iface.mainWindow() )
 		QObject.connect( self.loadCsvAction, SIGNAL( "triggered()" ), self.loadCsv )
 
-		self.useActiveLayerAction = QAction( "Use active layer", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/useActiveLayer.png" )
+		self.useActiveLayerAction = QAction( QIcon( ":/gem-mt_plugin/icons/active_layer" ), "Use active layer", self.iface.mainWindow() )
 		QObject.connect( self.useActiveLayerAction, SIGNAL( "triggered()" ), self.useActiveLayer )
 
-		self.plotStatsAction = QAction( "Plot statistics", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/plotStats.png" )
+		self.plotStatsAction = QAction( QIcon( ":/gem-mt_plugin/icons/stats" ), "Plot statistics", self.iface.mainWindow() )
 		self.plotStatsAction.setCheckable(True)
 		QObject.connect( self.plotStatsAction, SIGNAL( "triggered()" ), self.displayFilterPanel )
 
-		self.classificationAction = QAction( "Classification", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/classification.png" )
+		self.classificationAction = QAction( QIcon( ":/gem-mt_plugin/icons/classification" ), "Classification", self.iface.mainWindow() )
 		self.classificationAction.setCheckable(True)
 		QObject.connect( self.classificationAction, SIGNAL( "triggered()" ), self.displayClassificationPanel )
 
-		self.routinesAction = QAction( "Processing", self.iface.mainWindow() )	#QIcon( ":/gem-mt_plugin/icons/processing.png" )
+		self.routinesAction = QAction( QIcon( ":/gem-mt_plugin/icons/processing" ), "Processing", self.iface.mainWindow() )
 		self.routinesAction.setCheckable(True)
 		QObject.connect( self.routinesAction, SIGNAL( "triggered()" ), self.displayRoutinesPanel )
 
