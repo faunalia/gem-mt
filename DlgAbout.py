@@ -1,0 +1,67 @@
+# -*- coding: utf-8 -*-
+
+"""
+/***************************************************************************
+Name			 	 : GEM Modellers Toolkit plugin (GEM-MT)
+Description          : Analysing and Processing Earthquake Catalogue Data
+Date                 : Jun 18, 2012 
+copyright            : (C) 2012 by Giuseppe Sucameli (Faunalia)
+email                : brush.tyler@gmail.com
+
+ ***************************************************************************/
+
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+"""
+
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+
+from ui.DlgAbout_ui import Ui_DlgAbout
+from TransformationTools import name, description, version
+import platform
+
+try:
+	import resources
+except ImportError:
+	import resources_rc
+
+class DlgAbout(QDialog, Ui_DlgAbout):
+
+	def __init__(self, parent=None):
+		QDialog.__init__(self, parent)
+		self.setupUi(self)
+
+		self.logo.setPixmap( QPixmap( ":/faunalia/logo" ) )
+		self.title.setText( name() )
+		self.description.setText( description() )
+
+		text = self.txt.toHtml()
+		text = text.replace( "$PLUGIN_NAME$", name() )
+
+		subject = "Help: %s" % name()
+		body = """\n\n
+--------
+Plugin name: %s
+Plugin version: %s
+Python version: %s
+Platform: %s - %s
+--------
+""" % ( name(), version(), platform.python_version(), platform.system(), platform.version() )
+
+		mail = QUrl( "mailto:abc@abc.com" )
+		mail.addQueryItem( "subject", subject )
+		mail.addQueryItem( "body", body )
+
+		text = text.replace( "$MAIL_SUBJECT$", unicode(mail.encodedQueryItemValue( "subject" )) )
+		text = text.replace( "$MAIL_BODY$", unicode(mail.encodedQueryItemValue( "body" )) )
+
+		self.txt.setHtml(text)
+
+

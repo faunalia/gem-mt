@@ -85,7 +85,7 @@ class GEM_MT_Plugin:
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.classificationAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.routinesAction )
 		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.settingsAction )
-		#self.iface.addPluginToMenu( "&GEM-MT Plugin", self.aboutAction )
+		self.iface.addPluginToMenu( "&GEM-MT Plugin", self.aboutAction )
 
 	def unload(self):
 		# delete the dockwidget
@@ -116,7 +116,7 @@ class GEM_MT_Plugin:
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.classificationAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.routinesAction )
 		self.iface.removePluginMenu( "&GEM-MT Plugin", self.settingsAction )
-		#self.iface.removePluginMenu( "&GEM-MT Plugin", self.aboutAction )
+		self.iface.removePluginMenu( "&GEM-MT Plugin", self.aboutAction )
 
 		# delete the custom toolbar
 		self.toolbar.deleteLater()
