@@ -210,7 +210,7 @@ class Utils:
 
 
 import math
-from qgis.core import QgsSymbolV2
+from qgis.core import QgsSymbolV2, QgsSingleSymbolRendererV2
 from qgis.core import QgsGraduatedSymbolRendererV2, QgsRendererRangeV2
 from qgis.core import QgsCategorizedSymbolRendererV2, QgsRendererCategoryV2
 
@@ -268,15 +268,13 @@ class LayerStyler:
 	def setDeclusteredStyle(vl, sizeField):
 		color = QColor('blue')
 
-		# since QGis > 1.8 QgsMarkerSymbolV2 has 2 size scale methods:
-		# ScaleArea and ScaleDiameter.
+		# in QGis > 1.8 QgsMarkerSymbolV2 has 2 size scale methods: ScaleArea and ScaleDiameter.
 		# Let's use ScaleArea with a single symbol renderer!
-		if QGis.QGIS_VERSION[0:3] > '1.8':
-			# get magnitude field
-			Utils.setSimpleStyle( vl, color=color, size=1.0, sizeScaleField=sizeField, sizeScaleMethod=QgsSymbolLayer.ScaleArea )
+		if hasattr(QgsSymbolV2, 'setScaleMethod'):
+			Utils.setSimpleStyle( vl, color=color, size=1.0, sizeScaleField=sizeField, sizeScaleMethod=QgsSymbolV2.ScaleArea )
 			return
 
-		# in Qgis <= 1.8 we have to use a graduated renderer with 
+		# in QGis <= 1.8 we have to use a graduated renderer with 
 		# proper ranges to emulate ScaleArea size scale method.
 		if vl.featureCount() == 0:
 			return	# cannot calcolate ranges values
@@ -378,12 +376,17 @@ class LayerStyler:
 		# put advanced rendering options into the props dictionary
 		props = {}
 
+		# if magnitude field is not found markers wont be scaled
 		try:
 			magnFieldIdx = key2index['magnitude']
 			props['sizeScaleField'] = fields[ magnFieldIdx ].name()
-			props['sizeScaleMethod'] = QgsSymbolV2.ScaleDiameter
-		except:
+
+			# ScaleDiameter scale method is not present in QGis <= 1.8
+			if hasattr(QgsSymbolV2, 'setScaleMethod'):
+				props['sizeScaleMethod'] = QgsSymbolV2.ScaleDiameter
+		except KeyError:
 			pass
+
 
 		# set the layer style
 		LayerStyler.setGraduatedStyle( vl, ranges, depthFieldName, **props )
@@ -401,8 +404,7 @@ class LayerStyler:
 			if 'size' in attrs:
 				symbolV2.setSize( attrs['size'] )
 
-			# from QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods:
-			# ScaleArea (default) and ScaleDiameter
+			# in QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods: ScaleArea and ScaleDiameter
 			if 'sizeScaleMethod' in kwargs and hasattr(symbolV2, 'setScaleMethod'):
 				symbolV2.setScaleMethod( kwargs['sizeScaleMethod'] )
 
@@ -431,11 +433,15 @@ class LayerStyler:
 		# put advanced rendering options into the props dictionary
 		props = {}
 
+		# if magnitude field is not found markers wont be scaled
+		fields = vl.dataProvider().fields()
 		try:
-			fields = vl.dataProvider().fields()
 			magnFieldIdx = Utils.key2indexFieldMap( fields )['magnitude']
 			props['sizeScaleField'] = fields[ magnFieldIdx ].name()
-			props['sizeScaleMethod'] = QgsSymbolV2.ScaleDiameter
+
+			# ScaleDiameter scale method is not present in QGis <= 1.8
+			if hasattr(QgsSymbolV2, 'setScaleMethod'):
+				props['sizeScaleMethod'] = QgsSymbolV2.ScaleDiameter
 		except KeyError:
 			pass
 
@@ -445,8 +451,6 @@ class LayerStyler:
 	@staticmethod
 	def setSimpleStyle(vl, **kwargs):
 		""" set a simple style """
-		from qgis.core import QgsSymbolV2, QgsSingleSymbolRendererV2
-
 		symbolV2 = QgsSymbolV2.defaultSymbol( vl.geometryType() )
 		if 'color' in kwargs:
 			symbolV2.setColor( kwargs['color'] )
@@ -454,8 +458,7 @@ class LayerStyler:
 		if 'size' in kwargs:
 			symbolV2.setSize( kwargs['size'] )
 
-		# from QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods:
-		# ScaleArea (default) and ScaleDiameter
+		# in QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods: ScaleArea and ScaleDiameter
 		if 'sizeScaleMethod' in kwargs and hasattr(symbolV2, 'setScaleMethod'):
 			symbolV2.setScaleMethod( kwargs['sizeScaleMethod'] )
 
