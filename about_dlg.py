@@ -24,7 +24,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from ui.DlgAbout_ui import Ui_DlgAbout
-from TransformationTools import name, description, version
+from gem_mt import name, description, version
 import platform
 
 try:
@@ -32,7 +32,7 @@ try:
 except ImportError:
 	import resources_rc
 
-class DlgAbout(QDialog, Ui_DlgAbout):
+class AboutDlg(QDialog, Ui_DlgAbout):
 
 	def __init__(self, parent=None):
 		QDialog.__init__(self, parent)
