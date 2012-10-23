@@ -29,40 +29,31 @@ from qgis.gui import *
 class Settings:
 	@staticmethod
 	def delimiter():
-		if True: # TODO: remove the following hack in version 0.1.0
-			# delimiter type was changed from regexp to plain,
-			# this hack remove the old regexps from settings and returns comma
-			settings = QSettings("/GEM-MT_plugin")
-			delim = settings.value("delimiter", ",").toString()
-			if delim in ['"?,(?!\s)"?', ',(?!\s)']:
-				settings.setValue("delimiter", QVariant(",") )
-				delim = ','
-			return delim
-		return QSettings("/GEM-MT_plugin").value("delimiter", ",").toString()
+		return QSettings().value("/GEM-MT_plugin/delimiter", ",").toString()
 
 	@staticmethod
 	def longitudeField():
-		return QSettings("/GEM-MT_plugin").value("long_field", "Longitude").toString()
+		return QSettings().value("/GEM-MT_plugin/long_field", "Longitude").toString()
 
 	@staticmethod
 	def latitudeField():
-		return QSettings("/GEM-MT_plugin").value("lat_field", "Latitude").toString()
+		return QSettings().value("/GEM-MT_plugin/lat_field", "Latitude").toString()
 
 	@staticmethod
 	def importCsvToSl():
-		return QSettings("/GEM-MT_plugin").value("import_csv_to_sl", True).toBool()
+		return QSettings().value("/GEM-MT_plugin/import_csv_to_sl", True).toBool()
 
 	@staticmethod
 	def magnitudeField():
-		return QSettings("/GEM-MT_plugin").value("magnitude_field", "Magnitude").toString()
+		return QSettings().value("/GEM-MT_plugin/magnitude_field", "Magnitude").toString()
 
 	@staticmethod
 	def depthField():
-		return QSettings("/GEM-MT_plugin").value("depth_field", "Depth").toString()
+		return QSettings().value("/GEM-MT_plugin/depth_field", "Depth").toString()
 
 	@staticmethod
 	def dateField():
-		return QSettings("/GEM-MT_plugin").value("date_field", "Date").toString()
+		return QSettings().value("/GEM-MT_plugin/date_field", "Date").toString()
 
 
 from ui.settingsDlg_ui import Ui_Dialog
@@ -72,7 +63,6 @@ class SettingsDlg(QDialog, Ui_Dialog):
 		self.setupUi(self)
 
 		# restore values
-		settings = QSettings("/GEM-MT_plugin")
 		self.delimiterCombo.setEditText( Settings.delimiter() )
 		self.longEdit.setText( Settings.longitudeField() )
 		self.latEdit.setText( Settings.latitudeField() )
@@ -83,14 +73,14 @@ class SettingsDlg(QDialog, Ui_Dialog):
 
 	def accept(self):
 		# store new values
-		settings = QSettings("/GEM-MT_plugin")
-		settings.setValue("delimiter", self.delimiterCombo.currentText())
-		settings.setValue("long_field", self.longEdit.text())
-		settings.setValue("lat_field", self.latEdit.text())
-		settings.setValue("import_csv_to_sl", self.csvToSlCheck.isChecked())
-		settings.setValue("magnitude_field", self.magnitudeEdit.text())
-		settings.setValue("depth_field", self.depthEdit.text())
-		settings.setValue("date_field", self.dateEdit.text())
+		settings = QSettings()
+		settings.setValue("/GEM-MT_plugin/delimiter", self.delimiterCombo.currentText())
+		settings.setValue("/GEM-MT_plugin/long_field", self.longEdit.text())
+		settings.setValue("/GEM-MT_plugin/lat_field", self.latEdit.text())
+		settings.setValue("/GEM-MT_plugin/import_csv_to_sl", self.csvToSlCheck.isChecked())
+		settings.setValue("/GEM-MT_plugin/magnitude_field", self.magnitudeEdit.text())
+		settings.setValue("/GEM-MT_plugin/depth_field", self.depthEdit.text())
+		settings.setValue("/GEM-MT_plugin/date_field", self.dateEdit.text())
 
 		super(SettingsDlg, self).accept()
 
