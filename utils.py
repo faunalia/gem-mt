@@ -245,8 +245,7 @@ class LayerStyler:
 			if 'size' in attrs:
 				symbolV2.setSize( attrs['size'] )
 
-			# from QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods:
-			# ScaleArea (default) and ScaleDiameter
+			# from QGis > 1.8 QgsMarkerSymbolV2 has 2 scale methods: ScaleArea and ScaleDiameter
 			if 'sizeScaleMethod' in kwargs and hasattr(symbolV2, 'setScaleMethod'):
 				symbolV2.setScaleMethod( kwargs['sizeScaleMethod'] )
 
@@ -270,7 +269,7 @@ class LayerStyler:
 
 		# in QGis > 1.8 QgsMarkerSymbolV2 has 2 size scale methods: ScaleArea and ScaleDiameter.
 		# Let's use ScaleArea with a single symbol renderer!
-		if hasattr(QgsSymbolV2, 'setScaleMethod'):
+		if hasattr(QgsSymbolV2, 'ScaleArea'):
 			Utils.setSimpleStyle( vl, color=color, size=1.0, sizeScaleField=sizeField, sizeScaleMethod=QgsSymbolV2.ScaleArea )
 			return
 
@@ -382,7 +381,7 @@ class LayerStyler:
 			props['sizeScaleField'] = fields[ magnFieldIdx ].name()
 
 			# ScaleDiameter scale method is not present in QGis <= 1.8
-			if hasattr(QgsSymbolV2, 'setScaleMethod'):
+			if hasattr(QgsSymbolV2, 'ScaleDiameter'):
 				props['sizeScaleMethod'] = QgsSymbolV2.ScaleDiameter
 		except KeyError:
 			pass
@@ -440,7 +439,7 @@ class LayerStyler:
 			props['sizeScaleField'] = fields[ magnFieldIdx ].name()
 
 			# ScaleDiameter scale method is not present in QGis <= 1.8
-			if hasattr(QgsSymbolV2, 'setScaleMethod'):
+			if hasattr(QgsSymbolV2, 'ScaleDiameter'):
 				props['sizeScaleMethod'] = QgsSymbolV2.ScaleDiameter
 		except KeyError:
 			pass
