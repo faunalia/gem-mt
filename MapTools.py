@@ -52,6 +52,7 @@ class Drawer(qgis.gui.QgsMapToolEmitPoint):
 	def deleteLater(self, *args):
 		QObject.disconnect(self.canvas, SIGNAL( "mapToolSet(QgsMapTool *)" ), self._toolChanged)
 		self.reset()
+		self.canvas.scene().removeItem( self.rubberBand )	# delete the item (it is owned by the canvas)
 		del self.rubberBand
 		del self.snapper
 		return qgis.gui.QgsMapToolEmitPoint.deleteLater(self, *args)
