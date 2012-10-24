@@ -27,7 +27,13 @@ def description():
 	return "Analysing and Processing Earthquake Catalogue Data"
 
 def authorName():
+	return author()
+
+def author():
 	return "Giuseppe Sucameli (Faunalia)"
+
+def email():
+	return "sucameli@faunalia.it"
 
 def icon():
 	return "icons/logo.png"
