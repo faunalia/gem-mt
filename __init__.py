@@ -21,7 +21,7 @@ email                : brush.tyler@gmail.com
 """
 
 def name():
-	return "GEM Modellers Toolkit plugin"
+	return "EQCAP - EarthQuake Catalogue Analysis Plugin"
 
 def description():
 	return "Analysing and Processing Earthquake Catalogue Data"
@@ -39,7 +39,7 @@ def icon():
 	return "icons/logo.png"
 
 def version():
-	return "1.0.0"
+	return "1.0.1"
 
 def qgisMinimumVersion():
 	return "1.5"
