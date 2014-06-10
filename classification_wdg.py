@@ -337,22 +337,17 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			QMessageBox.warning(self, "Invalid area", "Unable to tranform the selected area to the layer CRS.")
 			return
 
-		# get the depth field index
-		pr = self.vl.dataProvider()
-		key2index = Utils.key2indexFieldMap( pr.fields() )
-		depthIndex =  key2index['depth']
-
 		# the following x and y lists will contain respectively the distance 
 		# along the buffer and the depth, the info list instead will contain 
 		# additional data
 		x, y, info = [], [], []
 
 		# fetch and loop through the features
-		pr.select([ depthIndex ], filteringGeom.boundingBox(), True)
-
 		toMapCrsTransform = QgsCoordinateTransform( self.vl.crs(), self.canvas.mapRenderer().destinationCrs() )
-		f = QgsFeature()
-		while pr.nextFeature( f ):
+			
+		request = QgsFeatureRequest()
+		request.setFilterRect(filteringGeom.boundingBox())
+		for f in vl.getFeatures( request ):
 			geom = f.geometry()
 
 			# filter features by spatial filter
@@ -367,7 +362,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			# store distance and depth values
 			dist = Utils.distanceAlongProfile( midlineGeom, geom )
 			x.append( Utils.toDisplayedSize( dist )	)	# convert to Km/Kft/degrees
-			y.append( f.attributeMap()[ depthIndex ].toDouble()[0] * -1 )
+			y.append( float(f['depth']) * -1 )
 			info.append( f.id() )
 
 		if len(x) <= 0:
@@ -465,12 +460,12 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		outpr.deleteFeatures( classifiedVl.selectedFeaturesIds() )
 
 		# fetch and loop through the features
-		inpr = self.vl.dataProvider()
-		inpr.select(self.vl.pendingAllAttributesList(), areaGeom.boundingBox(), True)
-
 		betweenLayersCrsTransform = QgsCoordinateTransform( self.vl.crs(), classifiedVl.crs() )
-		f = QgsFeature()
-		while inpr.nextFeature( f ):
+		request = QgsFeatureRequest()
+		request.setFilterRect( areaGeom.boundingBox() )
+		idxs = [self.vl.fieldNameIndex(fieldName) for fieldName in self.vl.pendingAllAttributesList()]
+		request.setSubsetOfAttributes( idxs )
+		for f in self.vl.getFeatures():
 			geom = f.geometry()
 
 			# filter features by spatial filter
@@ -488,11 +483,9 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			f.setGeometry( QgsGeometry.fromPoint(geom.asPoint()) )
 
 			# set feature attributes
-			attrs = {}
-			for index, attr in sorted(f.attributeMap().iteritems()):
-				attrs[ len(attrs) ] = attr
-			attrs[ len(attrs) ] =  'shallow' if classType == 0 else 'deep'
-			f.setAttributeMap( attrs )
+			attrs = f.attributes()
+			attrs.append( 'shallow' if classType == 0 else 'deep' )
+			f.setAttributs( attrs )
 
 			# add the feature
 			outpr.addFeatures( [f] )
@@ -513,10 +506,10 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		def headerData(self, section, orientation, role):
 			if role == Qt.DisplayRole:
 				if orientation == Qt.Horizontal:
-					return QVariant(self.header[section])
+					return self.header[section]
 				if orientation == Qt.Vertical:
-					return QVariant(section+1)
-			return QVariant()
+					return section+1
+			return None
 
 		def append(self, buffersize, data):
 			item = QStandardItem()
@@ -545,7 +538,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		def getBufferSize(self, index):
 			if index.isValid():
-				displayed_size = self.data( self.index(index.row(), 0) ).toDouble()[0]
+				displayed_size = float(self.data( self.index(index.row(), 0) ))
 				# convert back to m/ft/degrees
 				return Utils.fromDisplayedSize( displayed_size )
 
@@ -553,13 +546,13 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			if index.isValid():
 				# display Km/Kft/degrees
 				displayed_size = Utils.toDisplayedSize( buffersize )
-				self.setData( self.index(index.row(), 0), QVariant( displayed_size ) )
+				self.setData( self.index(index.row(), 0), displayed_size )
 
 		def getAdditionalData(self, index):
 			if index.isValid():
-				return self.data( self.index(index.row(), 0), Qt.UserRole ).toPyObject()
+				return self.data( self.index(index.row(), 0), Qt.UserRole )
 
 		def setAdditionalData(self, index, data):
 			if index.isValid():
-				self.setData( self.index(index.row(), 0), QVariant(data), Qt.UserRole )
+				self.setData( self.index(index.row(), 0), data, Qt.UserRole )
 

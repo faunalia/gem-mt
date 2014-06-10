@@ -202,7 +202,7 @@ class DeclusterWdg(QWidget):
 		matrix[:, 2] = day.T	# add day
 
 		# add longitude, latitude, magnitude
-		matrix[:, 3:6] = np.vectorize(lambda x: x.toDouble()[0])(data[:, 0:3])
+		matrix[:, 3:6] = np.vectorize(lambda x: float(x))(data[:, 0:3])
 
 		return matrix
 
@@ -312,7 +312,7 @@ class DeclusterWdg(QWidget):
 		pr = vl.dataProvider()
 		for row in data:
 			attrs = dict(enumerate(row[1:].tolist()))
-			point = QgsPoint( row[longFieldIdx].toDouble()[0], row[latFieldIdx].toDouble()[0] )
+			point = QgsPoint( float(row[longFieldIdx]), row[latFieldIdx].toDouble()[0] )
 
 			f = QgsFeature()
 			f.setAttributeMap( attrs )
@@ -393,7 +393,7 @@ class DeclusterWdg(QWidget):
 			QApplication.restoreOverrideCursor()
 
 		# store the output to ascii file
-		filename = QFileDialog.getSaveFileName( self, "Choose where to save the output", QString(), "ASCII file (*.txt)" )
+		filename = QFileDialog.getSaveFileName( self, "Choose where to save the output", "", "ASCII file (*.txt)" )
 		if filename == "":
 			return
 

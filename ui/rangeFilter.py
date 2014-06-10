@@ -116,7 +116,7 @@ class RangeFilter(QtGui.QWidget):
         self.minSpin.setMinimum(val)
         self.maxSpin.setMinimum(val)
         self.slider.setMinimum( self._toSliderValue(val) )
-
+        
     def setMaximum(self, value):
         val = self._getValue( value )
         if val is None:
@@ -125,15 +125,14 @@ class RangeFilter(QtGui.QWidget):
         self.minSpin.setMaximum(val)
         self.maxSpin.setMaximum(val)
         self.slider.setMaximum( self._toSliderValue(val) )
-
+        
         # avoid resizing when the max value changes
         minSpinSize = self.minSpin.sizeHint()
         maxSpinSize = self.maxSpin.sizeHint()
         w,h = max(minSpinSize.width(), maxSpinSize.width()), max(minSpinSize.height(), maxSpinSize.height())
         self.minSpin.setFixedSize( w, h )
         self.maxSpin.setFixedSize( w, h )
-
-
+        
     def lowValue(self):
         return self.minSpin.value()
 
@@ -219,15 +218,15 @@ class RangeFilter(QtGui.QWidget):
 
     @classmethod
     def _getValue(self, value):
-        if not isinstance(value, QtCore.QVariant): 
-            return value
+        if value == None: return
 
-        if not value.isValid(): return
-
-        val, ok = value.toInt()
-        if ok: return val
-
-        return int(float(value.toString()))
+        try:
+            val = int(value)
+            return val
+        except:
+            pass
+        
+        return int(float(str(value)))
 
 
 class DoubleRangeFilter(RangeFilter):
@@ -264,15 +263,15 @@ class DoubleRangeFilter(RangeFilter):
 
     @classmethod
     def _getValue(self, value):
-        if not isinstance(value, QtCore.QVariant): 
-            return value
+        if value == None: return
 
-        if not value.isValid(): return
+        try:
+            val = float(value)
+            return val
+        except:
+            pass
 
-        val, ok = value.toDouble()
-        if ok: return val
-
-        return float(value.toString())
+        return float(str(value))
 
 
 class DateRangeFilter(RangeFilter):
@@ -308,10 +307,9 @@ class DateRangeFilter(RangeFilter):
         self.maxSpin.setMinimum = lambda val: setMinFunc( self.maxSpin, val )
         self.maxSpin.setMaximum = lambda val: setMaxFunc( self.maxSpin, val )
         self.maxSpin.setValue = lambda val: setValueFunc( self.maxSpin, val )
-
-        self.connect( self.minSpin, QtCore.SIGNAL("dateChanged(const QDate &)"), self.setLowValue )
-        self.connect( self.maxSpin, QtCore.SIGNAL("dateChanged(const QDate &)"), self.setHighValue )
-
+        
+        self.minSpin.dateChanged.connect(self.setLowValue)
+        self.maxSpin.dateChanged.connect(self.setHighValue)
 
     def _toSliderValue(self, val):
         return (self._convertToValue( val ) - self.minimum().toTime_t()) / 3600
@@ -322,31 +320,42 @@ class DateRangeFilter(RangeFilter):
 
     @classmethod
     def _getValue(self, val):
-        if not isinstance(val, QtCore.QVariant): 
-            return self._convertToValue( val )
-
-        if not val.isValid(): return
+        if val == None: return
 
         ok = False
-        if val.type() == QtCore.QVariant.Int:
-            newval, ok = val.toInt()
-        elif val.type() in (QtCore.QVariant.Date, QtCore.QVariant.DateTime, QtCore.QVariant.String):
-            newval = val.toDate()
-            ok = newval.isValid()
-
+        try:
+            newval = int(val)
+            ok = True
+        except:
+            pass
+        
+        if type(val) in [QtCore.QDate, QtCore.QDateTime]:
+            try:
+                newval = val
+                ok = True
+            except:
+                pass
+        
+        if type(val) in [datetime]:
+            try:
+                newval = val
+                ok = True
+            except:
+                pass
+        
         if not ok: return
-
+        
         return self._convertToValue( newval )
 
     @classmethod
     def _convertToDateTime(self, val):
-        if isinstance(val, (int,long)):
+        if type(val) in [int,long]:
             return self._fixupDateTime( QtCore.QDateTime.fromTime_t(val) )
-        elif isinstance(val, (date, datetime)):
+        elif type(val) in [date, datetime]:
             return self._fixupDateTime( QtCore.QDateTime( val.year, val.month, val.day, 0,0,0 ) )
-        elif isinstance(val, QtCore.QDate):
+        elif type(val) in [QtCore.QDate]:
             return self._fixupDateTime( QtCore.QDateTime(val, QtCore.QTime(0,0,0)) )
-        elif isinstance(val, QtCore.QDateTime):
+        elif type(val) in [QtCore.QDateTime]:
              return self._fixupDateTime( val )
 
     @classmethod
@@ -387,10 +396,14 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == 'date':
         rangeFilter = DateRangeFilter()
-        rangeFilter.setMinimum(QtCore.QDate(1970,01,01))
-        rangeFilter.setLowValue(QtCore.QDate(1980,01,01))
-        rangeFilter.setMaximum(QtCore.QDate(2020,12,31))
-        rangeFilter.setHighValue(QtCore.QDate(2010,12,31))
+        rangeFilter.setMinimum(datetime.strptime("1970-01-01 00:00:00", '%Y-%m-%d %H:%M:%S'))
+        rangeFilter.setLowValue(datetime.strptime("1980-01-01 00:00:00", '%Y-%m-%d %H:%M:%S'))
+        rangeFilter.setMaximum(datetime.strptime("2020-12-31 00:00:00", '%Y-%m-%d %H:%M:%S'))
+        rangeFilter.setHighValue(datetime.strptime("2010-12-31 00:00:00", '%Y-%m-%d %H:%M:%S'))
+#         rangeFilter.setMinimum(QtCore.QDate(1970,01,01))
+#         rangeFilter.setLowValue(QtCore.QDate(1980,01,01))
+#         rangeFilter.setMaximum(QtCore.QDate(2020,12,31))
+#         rangeFilter.setHighValue(QtCore.QDate(2010,12,31))
 
     else:
         print "invalid argument %s" % sys.argv[1]

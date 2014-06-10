@@ -43,7 +43,7 @@ class AboutDlg(QDialog, Ui_DlgAbout):
 		self.description.setText( description() )
 
 		text = self.txt.toHtml()
-		text = text.replace( "$PLUGIN_NAME$", name() )
+		text = re.sub("$PLUGIN_NAME$", name(), text)
 
 		subject = "Help: %s" % name()
 		body = """\n\n
@@ -59,8 +59,8 @@ Platform: %s - %s
 		mail.addQueryItem( "subject", subject )
 		mail.addQueryItem( "body", body )
 
-		text = text.replace( "$MAIL_SUBJECT$", unicode(mail.encodedQueryItemValue( "subject" )) )
-		text = text.replace( "$MAIL_BODY$", unicode(mail.encodedQueryItemValue( "body" )) )
+		text = re.sub("$MAIL_SUBJECT$", unicode(mail.encodedQueryItemValue( "subject" )), text)
+		text = re.sub("$MAIL_BODY$", unicode(mail.encodedQueryItemValue( "body" )), text)
 
 		self.txt.setHtml(text)
 

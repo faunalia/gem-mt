@@ -90,7 +90,7 @@ class CompletenessWdg(QWidget):
 
 		# convert QVariant objects to proper values
 		year = np.vectorize(lambda x: x.toDate().year())(matrix[:, 0])
-		magnitude = np.vectorize(lambda x: x.toDouble()[0])(matrix[:, 1])
+		magnitude = np.vectorize(lambda x: float(x) )(matrix[:, 1])
 
 		# get options
 		time_window = float(self.time_window.text())
@@ -166,7 +166,7 @@ class CompletenessWdg(QWidget):
 			QApplication.restoreOverrideCursor()
 
 		# store the output to ascii file
-		filename = QFileDialog.getSaveFileName( self, "Choose where to save the output", QString(), "ASCII file (*.txt)" )
+		filename = QFileDialog.getSaveFileName( self, "Choose where to save the output", "", "ASCII file (*.txt)" )
 		if filename == "":
 			return
 

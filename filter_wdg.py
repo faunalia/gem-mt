@@ -19,7 +19,8 @@ email                : brush.tyler@gmail.com
  *                                                                         *
  ***************************************************************************/
 """
-
+import re
+import traceback
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
@@ -61,9 +62,10 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.updateAxesCombos()
 
 		# populate both axis combos with field names
-		for index, fld in self.vl.dataProvider().fields().iteritems():
-			self.xAxisCombo.addItem( fld.name(), QVariant(index) )
-			self.yAxisCombo.addItem( fld.name(), QVariant(index) )
+		fields = self.vl.dataProvider().fields()
+		for index in range(fields.count()):
+			self.xAxisCombo.addItem( fields[index].name(), index )
+			self.yAxisCombo.addItem( fields[index].name(), index )
 
 		# connect actions to the widgets
 		self.connect(self.drawPolygonBtn, SIGNAL("clicked()"), self.drawPolygon)
@@ -108,9 +110,9 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 
 	def _filterForKey(self, key):
-		if key == 'magnitude': return self.magnitudeRangeFilter
-		if key == 'depth': return self.depthRangeFilter
-		if key == 'date': return self.dateRangeFilter
+		if 'magnitude' in key: return self.magnitudeRangeFilter
+		if 'depth' in key: return self.depthRangeFilter
+		if 'date' in key: return self.dateRangeFilter
 		return None
 
 	def _hasPlotYField(self, plotType):
@@ -152,20 +154,14 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 			minVal = pr.minimumValue( index )
 			maxVal = pr.maximumValue( index )
-
-			if minVal.isValid() and maxVal.isValid():
+			if minVal != None and maxVal != None:
 				# check for empty strings (the provider could be unable to retrieve values)
-				if minVal.toString().isEmpty():
-					minVal = None
-				if maxVal.toString().isEmpty():
-					maxVal = None
-
 				if minVal is None or maxVal is None:
 					# let's search the real min/max values
-					self.vl.select([index], QgsRectangle(), False)
-					f = QgsFeature()
-					while self.vl.nextFeature( f ):
-						fval = Utils.valueFromQVariant( f.attributeMap()[index] )
+					request = QgsFeatureRequest()
+					request.setSubsetOfAttributes([index])
+					for f in self.vl.getFeatures( request ):
+						fval = Utils.valueFromQVariant( f.attributes()[index] )
 						if not minVal or fval < minVal:
 							minVal = fval
 						if not maxVal or fval > maxVal:
@@ -180,8 +176,9 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 					filterWdg.setLowValue( minVal )
 					filterWdg.setMaximum( maxVal )
 					filterWdg.setHighValue( maxVal )
-				except:
-					raise
+				except Exception, ex:
+					traceback.print_exc()
+					#raise
 					# unable to set min/max, skip the filter
 					continue
 
@@ -205,30 +202,30 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		subsets = []
 		for key, index in key2index.iteritems():
 			filterWdg = self._filterForKey( key )
-			if not filterWdg or not filterWdg.isEnabled() or not filterWdg.isActive():
+			if not filterWdg or not filterWdg.isEnabled():
 				continue
 
 			name = pr.fields()[index].name()
 
 			# define a new subset string when the low value is greather then the minimum value
 			if filterWdg.lowValue() > filterWdg.minimum():
-				minVal = QVariant(filterWdg.lowValue())
-				if minVal.type() in (QVariant.Date, QVariant.DateTime):
+				minVal = filterWdg.lowValue()
+				if type(minVal) in (QDate, QDateTime):
 					dataFormat = "yyyy/MM/dd" if self.vl.providerType() == 'ogr' else "yyyy-MM-dd"
-					minVal = u"'%s'" % minVal.toDate().toString(dataFormat)
+					minVal = u"'%s'" % minVal.toString(dataFormat)
 				else:
-					minVal = minVal.toString()
-				subsets.append( u"\"%s\" >= %s" % (name.replace('"', '""'), minVal) )
+					minVal = str(minVal)
+				subsets.append( u"\"%s\" >= %s" % (re.sub('"', '""', name), minVal) )
 
 			# define a new subset string when the high value is less then the maximum value
 			if filterWdg.highValue() < filterWdg.maximum():
-				maxVal = QVariant(filterWdg.highValue())
-				if maxVal.type() in (QVariant.Date, QVariant.DateTime):
+				maxVal = filterWdg.highValue()
+				if type(maxVal) in (QDate, QDateTime):
 					dataFormat = "yyyy/MM/dd" if self.vl.providerType() == 'ogr' else "yyyy-MM-dd"
-					maxVal = u"'%s'" % maxVal.toDate().toString(dataFormat)
+					maxVal = u"'%s'" % maxVal.toString(dataFormat)
 				else:
-					maxVal = maxVal.toString()
-				subsets.append( u"\"%s\" <= %s" % (name.replace('"', '""'), maxVal) )
+					maxVal = str(maxVal)
+				subsets.append( u"\"%s\" <= %s" % (re.sub('"', '""', name), maxVal) )
 
 		# set the subset string, then update the layer
 		if self.vl.setSubsetString( u" AND ".join(subsets) ):
@@ -289,14 +286,15 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 			extent = spatialFilter.boundingBox()
 
 		# get the indexes of fields selected in the combos
-		xIndex = self.xAxisCombo.itemData( self.xAxisCombo.currentIndex() ).toInt()[0]
-		yIndex = self.yAxisCombo.itemData( self.yAxisCombo.currentIndex() ).toInt()[0]
+		xIndex = int(self.xAxisCombo.itemData( self.xAxisCombo.currentIndex() ))
+		yIndex = int(self.yAxisCombo.itemData( self.yAxisCombo.currentIndex() ))
 
 		pr = self.vl.dataProvider()
 		index2key = Utils.index2keyFieldMap( pr.fields() )
 
 		indexes = []
-		for index, fld in pr.fields().iteritems():
+		for fld in pr.fields().toList():
+			index = pr.fields().indexFromName(fld.name())
 			if index == xIndex:
 				indexes.append( xIndex )
 				continue
@@ -314,16 +312,16 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		x, y = ([], [])
 
 		# fetch and loop through the features
-		pr.select( indexes, extent, True )
-
-		f = QgsFeature()
-		while pr.nextFeature( f ):
+		request = QgsFeatureRequest()
+		request.setFilterRect( extent )
+		request.setSubsetOfAttributes( indexes )
+		for f in self.vl.getFeatures( request ):
 			# filter features by spatial filter
 			if spatialFilter and not spatialFilter.contains( f.geometry() ):
 				continue
 
 			# filter features by attribute values
-			attrs = f.attributeMap()
+			attrs = f.attributes()
 
 			ok = True
 			for index, val in attrs.iteritems():

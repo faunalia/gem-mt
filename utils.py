@@ -61,9 +61,13 @@ class Utils:
 	@staticmethod
 	def createMemoryLayer(geomtype, crs, fields, name):
 		def memoryTypeName(fld):
-			if fld.type() == QVariant.Int:
+			if type(fld) == QVariant.Int:
 				return "integer"
-			elif fld.type() == QVariant.Double:
+			elif type(fld) == QVariant.Double:
+				return "double"
+			elif type(fld) == 'int':
+				return "integer"
+			elif type(fld) == "floaf":
 				return "double"
 			return "string"
 
@@ -93,10 +97,10 @@ class Utils:
 	def key2indexFieldMap( fields ):
 		key2index = {}
 
-		for index, fld in fields.iteritems():
+		for fld in fields.toList():
 			key = Utils.fieldName2key( fld.name() )
 			if key:
-				key2index[ key ] = index
+				key2index[ key ] = fields.indexFromName(fld.name())
 
 		return key2index
 
@@ -104,10 +108,10 @@ class Utils:
 	def index2keyFieldMap( fields ):
 		index2key = {}
 
-		for index, fld in fields.iteritems():
+		for fld in fields.toList():
 			key = Utils.fieldName2key( fld.name() )
 			if key:
-				index2key[ index ] = key
+				index2key[ fields.indexFromName(fld.name()) ] = key
 
 		return index2key
 
@@ -115,20 +119,20 @@ class Utils:
 	def fieldName2key( fieldName ):
 		from settings_dlg import Settings
 
-		if not Settings.longitudeField().isEmpty() and \
-				fieldName.startsWith( Settings.longitudeField(), Qt.CaseInsensitive ):
+		if not Settings.longitudeField() == "" and \
+				fieldName.lower().startswith( Settings.longitudeField().lower() ):
 			return 'longitude'
-		if not Settings.latitudeField().isEmpty() and \
-				fieldName.startsWith( Settings.latitudeField(), Qt.CaseInsensitive ):
+		if not Settings.latitudeField() == "" and \
+				fieldName.lower().startswith( Settings.latitudeField().lower() ):
 			return 'latitude'
-		if not Settings.magnitudeField().isEmpty() and \
-				fieldName.startsWith( Settings.magnitudeField(), Qt.CaseInsensitive ):
+		if not Settings.magnitudeField() == "" and \
+				fieldName.lower().startswith( Settings.magnitudeField().lower() ):
 			return 'magnitude'
-		if not Settings.depthField().isEmpty() and \
-				fieldName.startsWith( Settings.depthField(), Qt.CaseInsensitive ):
+		if not Settings.depthField() == "" and \
+				fieldName.lower().startswith( Settings.depthField().lower() ):
 			return 'depth'
-		if not Settings.dateField().isEmpty() and \
-				fieldName.startsWith( Settings.dateField(), Qt.CaseInsensitive ):
+		if not Settings.dateField() == "" and \
+				fieldName.lower().startswith( Settings.dateField().lower() ):
 			return 'date'
 
 		return None
@@ -159,21 +163,21 @@ class Utils:
 	@staticmethod
 	def valueFromQVariant(val):
 		""" function to convert values to proper types """
-		if not isinstance(val, QVariant):
-			return val
+# 		if not isinstance(val, QVariant):
+# 			return val
 
-		if val.type() == QVariant.Int:
-			return val.toInt()[0]
-		elif val.type() == QVariant.Double:
-			return val.toDouble()[0]
-		elif val.type() == QVariant.Date:
+		if isinstance(val, int):
+			return val
+		elif isinstance(val, float):
+			return val
+		elif type(val) == QVariant.Date:
 			return val.toDate().toPyDate()
-		elif val.type() == QVariant.DateTime:
+		elif type(val) == QVariant.DateTime:
 			return val.toDateTime().toPyDateTime()
 
 		# try to convert the value to a date
 		from datetime import datetime
-		s = unicode(val.toString())
+		s = unicode(val)
 		try:
 			return datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
 		except ValueError:
@@ -182,15 +186,27 @@ class Utils:
 			return datetime.strptime(s, '%Y-%m-%d')
 		except ValueError:
 			pass
-
-		v, ok = val.toDouble()
-		if ok: return v
-		v, ok = val.toInt()
-		if ok: return v
-		v = val.toDateTime()
-		if v.isValid(): return v.toPyDateTime()
-		v = val.toDate()
-		if v.isValid(): return v.toPyDate()
+		
+		try:
+			v = float(val)
+			return v
+		except:
+			pass
+		try:
+			v = int(val)
+			return v
+		except:
+			pass
+		try:
+			v = val.toDateTime().toPyDateTime()
+			return v
+		except:
+			pass
+		try:
+			v = val.toDate().toPyDate()
+			return v
+		except:
+			pass
 
 		return unicode(s)
 
@@ -219,14 +235,12 @@ class LayerStyler:
 	@staticmethod
 	def setBasemapStyle(vl):
 		# set the basemap layer color
-		if not vl.isUsingRendererV2():
-			vl.setRendererV2(QgsSingleSymbolRendererV2())
+		vl.setRendererV2(QgsSingleSymbolRendererV2( QgsSymbolV2.defaultSymbol(vl.geometryType()) ))
 		vl.rendererV2().symbol().setColor( QColor( "#FFF1B7" ) )	# beige
 
 	@staticmethod
 	def setGraduatedStyle(vl, ranges, field, **kwargs):
 		""" set a graduated style """
-
 		# make a symbol for each range
 		rangeV2List = []
 		for min_val, max_val, attrs in ranges:
@@ -286,10 +300,10 @@ class LayerStyler:
 
 		# let's reset the subset string to get real min/max
 		pr.setSubsetString("")
-		minVal, minOk = pr.minimumValue( index ).toDouble()
-		maxVal, maxOk = pr.maximumValue( index ).toDouble()
-
-		if not minOk or not maxOk:
+		try:
+			minVal = float( pr.minimumValue( index ) )
+			maxVal = float( pr.maximumValue( index ) )
+		except:
 			return
 
 		minVal = math.floor(minVal)
@@ -335,12 +349,12 @@ class LayerStyler:
 
 		# let's reset the subset string to get real min/max
 		pr.setSubsetString("")
-		minDepth, minOk = pr.minimumValue( depthFieldIndex ).toDouble()
-		maxDepth, maxOk = pr.maximumValue( depthFieldIndex ).toDouble()
-
-		if not minOk or not maxOk:
+		try:
+			minDepth = float( pr.minimumValue( depthFieldIndex ) )
+			maxDepth = float( pr.maximumValue( depthFieldIndex ) )
+		except:
 			return
-
+		
 		minVal = math.floor(minDepth)
 		maxVal = math.ceil(maxDepth)
 
@@ -369,7 +383,7 @@ class LayerStyler:
 				values = (lastVal, maxVal)
 			else:
 				values = (lastVal, lastVal + step)
-			ranges.append( (int(values[0]), int(values[1]), {'color':col, 'size':0.8} ) )
+			ranges.append( ( int(values[0]), int(values[1]), {'color':col, 'size':1.5} ) )
 			lastVal = values[1]
 
 		# put advanced rendering options into the props dictionary
@@ -383,6 +397,7 @@ class LayerStyler:
 			# ScaleDiameter scale method is not present in QGis <= 1.8
 			if hasattr(QgsSymbolV2, 'ScaleDiameter'):
 				props['sizeScaleMethod'] = QgsSymbolV2.ScaleDiameter
+				#props['sizeScaleMethod'] = QgsSymbolV2.ScaleArea
 		except KeyError:
 			pass
 

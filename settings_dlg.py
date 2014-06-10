@@ -29,31 +29,31 @@ from qgis.gui import *
 class Settings:
 	@staticmethod
 	def delimiter():
-		return QSettings().value("/GEM-MT_plugin/delimiter", ",").toString()
+		return QSettings().value("/GEM-MT_plugin/delimiter", ",")
 
 	@staticmethod
 	def longitudeField():
-		return QSettings().value("/GEM-MT_plugin/long_field", "Longitude").toString()
+		return QSettings().value("/GEM-MT_plugin/long_field", "Longitude")
 
 	@staticmethod
 	def latitudeField():
-		return QSettings().value("/GEM-MT_plugin/lat_field", "Latitude").toString()
+		return QSettings().value("/GEM-MT_plugin/lat_field", "Latitude")
 
 	@staticmethod
 	def importCsvToSl():
-		return QSettings().value("/GEM-MT_plugin/import_csv_to_sl", True).toBool()
+		return bool( QSettings().value("/GEM-MT_plugin/import_csv_to_sl", True) )
 
 	@staticmethod
 	def magnitudeField():
-		return QSettings().value("/GEM-MT_plugin/magnitude_field", "Magnitude").toString()
+		return QSettings().value("/GEM-MT_plugin/magnitude_field", "Magnitude")
 
 	@staticmethod
 	def depthField():
-		return QSettings().value("/GEM-MT_plugin/depth_field", "Depth").toString()
+		return QSettings().value("/GEM-MT_plugin/depth_field", "Depth")
 
 	@staticmethod
 	def dateField():
-		return QSettings().value("/GEM-MT_plugin/date_field", "Date").toString()
+		return QSettings().value("/GEM-MT_plugin/date_field", "Date")
 
 
 from ui.settingsDlg_ui import Ui_Dialog
@@ -74,13 +74,13 @@ class SettingsDlg(QDialog, Ui_Dialog):
 	def accept(self):
 		# store new values
 		settings = QSettings()
-		settings.setValue("/GEM-MT_plugin/delimiter", self.delimiterCombo.currentText())
-		settings.setValue("/GEM-MT_plugin/long_field", self.longEdit.text())
-		settings.setValue("/GEM-MT_plugin/lat_field", self.latEdit.text())
-		settings.setValue("/GEM-MT_plugin/import_csv_to_sl", self.csvToSlCheck.isChecked())
-		settings.setValue("/GEM-MT_plugin/magnitude_field", self.magnitudeEdit.text())
-		settings.setValue("/GEM-MT_plugin/depth_field", self.depthEdit.text())
-		settings.setValue("/GEM-MT_plugin/date_field", self.dateEdit.text())
+		settings.setValue("/GEM-MT_plugin/delimiter", self.delimiterCombo.currentText(), type=str)
+		settings.setValue("/GEM-MT_plugin/long_field", self.longEdit.text(), type=str)
+		settings.setValue("/GEM-MT_plugin/lat_field", self.latEdit.text(), type=str)
+		settings.setValue("/GEM-MT_plugin/import_csv_to_sl", self.csvToSlCheck.isChecked(), type=bool)
+		settings.setValue("/GEM-MT_plugin/magnitude_field", self.magnitudeEdit.text(), type=str)
+		settings.setValue("/GEM-MT_plugin/depth_field", self.depthEdit.text(), type=str)
+		settings.setValue("/GEM-MT_plugin/date_field", self.dateEdit.text(), type=str)
 
 		super(SettingsDlg, self).accept()
 

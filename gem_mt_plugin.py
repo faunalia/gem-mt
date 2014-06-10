@@ -23,7 +23,7 @@ email                : brush.tyler@gmail.com
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from qgis.core import QGis, QgsVectorLayer, QgsField
+from qgis.core import QGis, QgsVectorLayer, QgsField, QgsMapLayerRegistry
 from utils import Utils, LayerStyler
 
 import resources_rc
@@ -141,10 +141,11 @@ class GEM_MT_Plugin:
 	def loadCsv(self):
 		""" load the CSV file selected by the user """
 		# ask for the csv file
-		filename = QFileDialog.getOpenFileName(self.iface.mainWindow(), "Select a csv file", QString(), "CSV file (*.csv)")
-		if filename.isEmpty():
+		filename = QFileDialog.getOpenFileName(self.iface.mainWindow(), "Select a csv file", "", "CSV file (*.csv)")
+		if filename and filename == "":
 			return	# cancel clicked
 
+		
 		# unset the render flag
 		prev_render_flag = self.iface.mapCanvas().renderFlag()
 		self.iface.mapCanvas().setRenderFlag( False )
@@ -173,12 +174,13 @@ class GEM_MT_Plugin:
 			# add the basemap layer, then the new layer
 			self.addBasemapLayer()
 			Utils.addVectorLayer(self.vl)
-
+			
 		finally:
 			# restore the cursor and render flag state
 			QApplication.restoreOverrideCursor()
 			self.iface.mapCanvas().setRenderFlag( prev_render_flag )
-
+			# zomm to extent
+			self.iface.mapCanvas().setExtent(self.basemapVl.extent())
 
 	def basemapLayer(self):
 		return self.basemapVl
@@ -242,7 +244,7 @@ class GEM_MT_Plugin:
 		# store the new layer
 		LayerStyler.setEarthquakesStyle(vl)
 		self.vl = vl
-		QObject.connect( self.vl, SIGNAL("layerDeleted()"), self.layerDestroyed )
+		self.vl.layerDeleted.connect( self.layerDestroyed )
 
 		# create the layer that will contain classified point
 		self.createClassifiedLayer()
@@ -256,8 +258,8 @@ class GEM_MT_Plugin:
 			# destroy the docked panel
 			self.destroyDock()
 
-			QObject.disconnect( self.vl, SIGNAL("layerDeleted()"), self.layerDestroyed )
-			#QgsMapLayerRegistry.instance().removeMapLayer( self.vl.id() )
+			self.vl.layerDeleted.connect( self.layerDestroyed )
+			QgsMapLayerRegistry.instance().removeMapLayer( self.vl.id() )
 			self.vl = None
 
 	def layerDestroyed(self):
@@ -280,7 +282,7 @@ class GEM_MT_Plugin:
 		# create the output layer
 		classField = "classType"
 
-		fields = map( lambda x: x[1], sorted(self.vl.dataProvider().fields().iteritems()) )
+		fields = map( lambda x: x, sorted(self.vl.dataProvider().fields().toList()) )
 		fields += [ QgsField(classField, QVariant.String) ]
 
 		vl = Utils.createMemoryLayer( 'Point', self.vl.crs().authid(), fields, "classified" )

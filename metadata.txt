@@ -2,8 +2,8 @@
 [general]
 name=EQCAP - EarthQuake Catalogue Analysis Plugin
 description=Analysing and Processing Earthquake Catalogue Data
-version=1.0.2
-qgisMinimumVersion=1.5
+version=2.0
+qgisMinimumVersion=2.0
 
 category=Plugin
 

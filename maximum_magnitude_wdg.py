@@ -51,8 +51,9 @@ class MaximumMagnitudeWdg(QWidget):
 		layer = Utils.classifiedVl()
 		self.combo = QComboBox(self)
 		self.combo.addItem( "-- none --", -1 )
-		for idx, fld in layer.dataProvider().fields().iteritems():
-			self.combo.addItem( fld.name(), idx )
+		fields = layer.dataProvider().fields()
+		for idx in range(fields.count()):
+			self.combo.addItem( fields[idx].name(), idx )
 		layout.addWidget(self.combo)
 
 		spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
@@ -81,9 +82,9 @@ class MaximumMagnitudeWdg(QWidget):
 		"""
 
 		# convert QVariant objects to proper values
-		magnitude = np.vectorize(lambda x: x.toDouble()[0])(matrix[:, 0])
+		magnitude = np.vectorize(lambda x: float(x))(matrix[:, 0])
 		if np.shape(matrix)[1] > 1:
-			sigma_magn = np.vectorize(lambda x: x.toDouble()[0])(matrix[:, 1])
+			sigma_magn = np.vectorize(lambda x: float(x))(matrix[:, 1])
 		else:
 			sigma_magn = np.ones( np.shape(magnitude) ) * 0.1
 
@@ -108,10 +109,10 @@ class MaximumMagnitudeWdg(QWidget):
 
 		# convert QVariant objects to proper values
 		year = np.vectorize(lambda x: x.toDate().year())(matrix[:, 0])
-		magnitude = np.vectorize(lambda x: x.toDouble()[0])(matrix[:, 1])
+		magnitude = np.vectorize(lambda x: float(x))(matrix[:, 1])
 
 		if np.shape(matrix)[1] > 2:
-			sigma_magn = np.vectorize(lambda x: x.toDouble()[0])(matrix[:, 2])
+			sigma_magn = np.vectorize(lambda x: float(x))(matrix[:, 2])
 		else:
 			sigma_magn = np.ones( np.shape(magnitude) ) * 0.1
 
@@ -157,7 +158,7 @@ class MaximumMagnitudeWdg(QWidget):
 			QApplication.restoreOverrideCursor()
 
 		# store the output to ascii files
-		filename = QFileDialog.getSaveFileName( self, "Choose where to save the output", QString(), "ASCII file (*.txt)" )
+		filename = QFileDialog.getSaveFileName( self, "Choose where to save the output", "", "ASCII file (*.txt)" )
 		if filename == "":
 			return
 
@@ -182,7 +183,7 @@ class MaximumMagnitudeWdg(QWidget):
 
 		data, panMap, indexes = req
 
-		sigma_field_idx = self.combo.itemData(self.combo.currentIndex()).toInt()[0]
+		sigma_field_idx = int ( self.combo.itemData(self.combo.currentIndex()) )
 		if sigma_field_idx >= 0:
 			indexes.append( sigma_field_idx )
 

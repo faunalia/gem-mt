@@ -109,7 +109,7 @@ class Ogr2ogrImporter(Importer):
 				return "String"
 
 			# add fields definition
-			for index, fld in self.inLayer.dataProvider().fields().iteritems():
+			for fld in self.inLayer.dataProvider().fields().toList():
 				vrtData = u"""
         <Field name="%s" type="%s"/>""" % (fld.name(), ogrTypeName(fld))
 				tempVrt.write( vrtData )
