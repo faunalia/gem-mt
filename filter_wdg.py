@@ -51,7 +51,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		self.setupFilters()
 
 		# create the maptool to draw polygons
-		self.polygonDrawer = PolygonDrawer( self.canvas, {'color':QColor("#666666"), 'enableSnap':False, 'keepAfterEnd':True} )
+		self.polygonDrawer = PolygonDrawer( self.canvas, {'color':QColor(102,102,102, 90), 'enableSnap':False, 'keepAfterEnd':True} )
 		self.polygonDrawer.setAction( self.drawPolygonBtn )
 		self.connect(self.polygonDrawer, SIGNAL("geometryEmitted"), self.polygonCreated)
 
@@ -110,6 +110,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 
 
 	def _filterForKey(self, key):
+		if key == None: return None
 		if 'magnitude' in key: return self.magnitudeRangeFilter
 		if 'depth' in key: return self.depthRangeFilter
 		if 'date' in key: return self.dateRangeFilter
@@ -302,9 +303,9 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 			if index == yIndex and hasYField:
 				indexes.append( yIndex )
 				continue
-
+			
 			filterWdg = self._filterForKey( Utils.fieldName2key( fld.name() ) )
-			if filterWdg and filterWdg.isActive():
+			if filterWdg and filterWdg.isEnabled():
 				indexes.append( index )
 
 
@@ -324,7 +325,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 			attrs = f.attributes()
 
 			ok = True
-			for index, val in attrs.iteritems():
+			for index, val in enumerate(attrs):
 				if not index2key.has_key( index ):
 					continue	# unused field
 

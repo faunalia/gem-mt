@@ -46,7 +46,7 @@ class ProcessingWdg(QWidget, Ui_ProcessingWdg):
 		self.algorithmStacked.setCurrentIndex(0)
 
 		# create the maptool to draw polygons
-		self.polygonDrawer = PolygonDrawer( self.canvas, {'color':QColor("#666666"), 'enableSnap':False, 'keepAfterEnd':True} )
+		self.polygonDrawer = PolygonDrawer( self.canvas, {'color':QColor(102,102,102, 60), 'enableSnap':False, 'keepAfterEnd':True} )
 		self.polygonDrawer.setAction( self.drawPolygonBtn )
 		self.connect(self.polygonDrawer, SIGNAL("geometryEmitted"), self.polygonCreated)
 
@@ -142,7 +142,7 @@ class ProcessingWdg(QWidget, Ui_ProcessingWdg):
 		# fetch and loop through the features
 		request = QgsFeatureRequest()
 		request.setFilterRect( extent )
-		idxs = [classifiedVl.fieldNameIndex(fieldName) for fieldName in classifiedVl.pendingAllAttributesList()]
+		idxs = [index for index in classifiedVl.pendingAllAttributesList()]
 		request.setSubsetOfAttributes( idxs )
 		for f in classifiedVl.getFeatures( request ):
 			# filter features by spatial filter

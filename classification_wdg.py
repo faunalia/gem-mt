@@ -46,7 +46,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self._sharedData = {}	# it will contain the classification map (data shared through the all cross sections)
 
 		# create the maptool to define the area of interest
-		self.areaDrawer = PolygonDrawer(self.iface.mapCanvas(), {'color':QColor('#333333'), 'border':2, 'enableSnap':False, 'keepAfterEnd':True})
+		self.areaDrawer = PolygonDrawer(self.iface.mapCanvas(), {'color':QColor(51,51,51, 60), 'border':2, 'enableSnap':False, 'keepAfterEnd':True})
 		self.areaDrawer.setAction( self.drawAreaBtn )
 		self.connect(self.areaDrawer, SIGNAL("geometryEmitted"), self.areaCreated)
 
@@ -172,6 +172,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 	def midlineBufferCreated(self, line):
 		""" called after the buffer midline is drawn by the user """
+		
 		# restore the previous maptool
 		self.restorePrevMapTool()
 
@@ -184,13 +185,13 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			return
 
 		# create the midline rubber band
-		midlineRb = QgsRubberBand(self.canvas, False)
-		midlineRb.setColor( QColor('cyan') )
+		midlineRb = QgsRubberBand(self.canvas, QGis.Line)
+		midlineRb.setColor( QColor(0,255,255, 127) ) # cyan
 		midlineRb.setWidth( 3 )
 
 		# create the buffer rubber band
-		bufferRb = QgsRubberBand(self.canvas, True)
-		bufferRb.setColor( QColor('fuchsia') )
+		bufferRb = QgsRubberBand(self.canvas, QGis.Polygon)
+		bufferRb.setColor( QColor(249, 132, 229, 90) ) # fuchsia
 		bufferRb.setWidth( 1 )
 
 		# define buffer width in layer CRS unit
@@ -210,17 +211,18 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 	def redrawMidlineRubberBand(self, rubberBand, segment):
 		""" re-draw the midline rubberband by segment """
-		rubberBand.reset(False)
-
+		rubberBand.reset(QGis.Line)
+				
 		# add points to the midline rubber band
-		rubberBand.addPoint( segment[0], False )
-		rubberBand.addPoint( segment[1], True )
+		(x1,y1), (x2,y2) = segment
+		rubberBand.addPoint( QgsPoint(x1, y1), False )
+		rubberBand.addPoint( QgsPoint(x2, y2), True )
 
 		rubberBand.show()
 
 	def redrawBufferRubberBand(self, rubberBand, segment, width):
 		""" re-draw the buffer rubberband by segment and width """
-		rubberBand.reset(True)
+		rubberBand.reset(QGis.Polygon)
 
 		# create a buffer around the line
 		import math
@@ -290,8 +292,8 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			buffersize = model.getBufferSize(index)
 			segment, (midlineRb, bufferRb), dlg = model.getAdditionalData(index)
 
-			midlineRb.setColor(QColor('#88FFFF')) if index == current else midlineRb.setColor(QColor('#00FFFF'))	# color cyan
-			bufferRb.setColor(QColor('#FF88FF')) if index == current else bufferRb.setColor(QColor('#FF00FF'))	# color fuchsia
+			midlineRb.setColor(QColor(136,255,255, 127)) if index == current else midlineRb.setColor(QColor(0,255,255, 127))	# color cyan
+			bufferRb.setColor(QColor(255,136,255, 90)) if index == current else bufferRb.setColor(QColor(255,0,255, 90))	# color fuchsia
 
 			self.redrawBufferRubberBand(bufferRb, segment, buffersize)
 			self.redrawMidlineRubberBand(midlineRb, segment)
@@ -326,6 +328,14 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		# compute the spatial filter
 		filteringGeom = bufferGeom.intersection( areaGeom )
+		
+		
+		
+		print filteringGeom
+		if filteringGeom: filteringGeom.exportToWkt()
+		
+		
+		
 		if not filteringGeom or filteringGeom.isGeosEmpty():
 			QMessageBox.warning(self, "Invalid area", "Intersection between the Area of interest and the selected classification buffer area is invalid or empty.")
 			return
@@ -344,10 +354,17 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		# fetch and loop through the features
 		toMapCrsTransform = QgsCoordinateTransform( self.vl.crs(), self.canvas.mapRenderer().destinationCrs() )
-			
+		
+		# field name
+		key2index = Utils.key2indexFieldMap( self.vl.dataProvider().fields() )
+		
+		print key2index
+		
+		depthIndex =  key2index['depth']
+		
 		request = QgsFeatureRequest()
 		request.setFilterRect(filteringGeom.boundingBox())
-		for f in vl.getFeatures( request ):
+		for f in self.vl.getFeatures( request ):
 			geom = f.geometry()
 
 			# filter features by spatial filter
@@ -362,7 +379,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			# store distance and depth values
 			dist = Utils.distanceAlongProfile( midlineGeom, geom )
 			x.append( Utils.toDisplayedSize( dist )	)	# convert to Km/Kft/degrees
-			y.append( float(f['depth']) * -1 )
+			y.append( float(f[depthIndex]) * -1 )
 			info.append( f.id() )
 
 		if len(x) <= 0:
@@ -463,8 +480,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		betweenLayersCrsTransform = QgsCoordinateTransform( self.vl.crs(), classifiedVl.crs() )
 		request = QgsFeatureRequest()
 		request.setFilterRect( areaGeom.boundingBox() )
-		idxs = [self.vl.fieldNameIndex(fieldName) for fieldName in self.vl.pendingAllAttributesList()]
-		request.setSubsetOfAttributes( idxs )
+		request.setSubsetOfAttributes( self.vl.pendingAllAttributesList() )
 		for f in self.vl.getFeatures():
 			geom = f.geometry()
 

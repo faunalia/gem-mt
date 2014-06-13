@@ -157,6 +157,7 @@ class GEM_MT_Plugin:
 			from importer import CsvToSL
 			importer = CsvToSL(filename, self.iface.mainWindow())
 			retCode, vl = importer.run()
+			
 			importer.deleteLater()
 			del importer
 
@@ -282,7 +283,7 @@ class GEM_MT_Plugin:
 		# create the output layer
 		classField = "classType"
 
-		fields = map( lambda x: x, sorted(self.vl.dataProvider().fields().toList()) )
+		fields = map( lambda x: x, self.vl.dataProvider().fields().toList() )
 		fields += [ QgsField(classField, QVariant.String) ]
 
 		vl = Utils.createMemoryLayer( 'Point', self.vl.crs().authid(), fields, "classified" )

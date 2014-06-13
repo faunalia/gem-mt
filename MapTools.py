@@ -32,9 +32,10 @@ import qgis.gui
 class Drawer(qgis.gui.QgsMapToolEmitPoint):
 	def __init__(self, canvas, isPolygon=False, props=None):
 		self.canvas = canvas
-		self.isPolygon = isPolygon
+		self.isPolygon = QGis.Line
+		if isPolygon:
+			self.isPolygon = QGis.Polygon
 		self.props = props if props is not None else {}
-
 		self.action = None
 		self.isEmittingPoints = False
 
@@ -123,7 +124,7 @@ class Drawer(qgis.gui.QgsMapToolEmitPoint):
 		if not self.isEmittingPoints:
 			return
 
-		if self.isPolygon:
+		if self.isPolygon ==  QGis.Polygon:
 			return
 
 		if self.props.get('mode', None) != 'segment':

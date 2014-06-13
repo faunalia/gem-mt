@@ -61,13 +61,13 @@ class Utils:
 	@staticmethod
 	def createMemoryLayer(geomtype, crs, fields, name):
 		def memoryTypeName(fld):
-			if type(fld) == QVariant.Int:
+			if fld.type() == QVariant.Int:
 				return "integer"
-			elif type(fld) == QVariant.Double:
+			elif fld.type() == QVariant.Double:
 				return "double"
-			elif type(fld) == 'int':
+			elif fld.type() == 'int':
 				return "integer"
-			elif type(fld) == "floaf":
+			elif fld.type() == "float":
 				return "double"
 			return "string"
 
@@ -118,7 +118,7 @@ class Utils:
 	@staticmethod
 	def fieldName2key( fieldName ):
 		from settings_dlg import Settings
-
+		
 		if not Settings.longitudeField() == "" and \
 				fieldName.lower().startswith( Settings.longitudeField().lower() ):
 			return 'longitude'
