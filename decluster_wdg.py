@@ -312,7 +312,7 @@ class DeclusterWdg(QWidget):
 		pr = vl.dataProvider()
 		for row in data:
 			attrs = dict(enumerate(row[1:].tolist()))
-			point = QgsPoint( float(row[longFieldIdx]), row[latFieldIdx].toDouble()[0] )
+			point = QgsPoint( float(row[longFieldIdx]), float(row[latFieldIdx]) )
 
 			f = QgsFeature()
 			f.setAttributeMap( attrs )
