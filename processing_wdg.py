@@ -125,6 +125,7 @@ class ProcessingWdg(QWidget, Ui_ProcessingWdg):
 			 their position in the data list """
 
 		classifiedVl = Utils.classifiedVl()
+		pr = classifiedVl.dataProvider()
 
 		# spatial filter
 		spatialFilter = self.polygonDrawer.geometry()
@@ -139,11 +140,12 @@ class ProcessingWdg(QWidget, Ui_ProcessingWdg):
 				return
 			extent = spatialFilter.boundingBox()
 
+		index2key = Utils.index2keyFieldMap( pr.fields() )
+
 		# fetch and loop through the features
 		request = QgsFeatureRequest()
 		request.setFilterRect( extent )
-		idxs = [index for index in classifiedVl.pendingAllAttributesList()]
-		request.setSubsetOfAttributes( idxs )
+		request.setSubsetOfAttributes( classifiedVl.pendingAllAttributesList() )
 		for f in classifiedVl.getFeatures( request ):
 			# filter features by spatial filter
 			if spatialFilter and not spatialFilter.contains( f.geometry() ):
@@ -151,13 +153,16 @@ class ProcessingWdg(QWidget, Ui_ProcessingWdg):
 
 			# create a new row: [id, *fields]
 			attrs = sorted( f.attributes() )
+			
 			row = [ f.id() ]
 			for index, key in enumerate( attrs ):
 				row.append( key )
 
 				# store the index of well-known field in the pan map so they
 				# can be found easily later
-				panMap[key] = len(row)-1
+				key = index2key.get(index, None)
+				if key is not None:
+					panMap[key] = len(row)-1
 
 			# append to the data buffer
 			data.append( row )
