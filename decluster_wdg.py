@@ -297,7 +297,7 @@ class DeclusterWdg(QWidget):
 		clusterNum = "clusterNum"
 		sizeField = "eventCount"
 
-		fields = map( lambda x: x[1], sorted(Utils.classifiedVl().dataProvider().fields().iteritems()) )
+		fields = Utils.classifiedVl().dataProvider().fields().toList()
 		fields += [ QgsField(clusterNum, QVariant.Int) ]	# add the cluster num field
 
 		if not isOrigLayer:
@@ -315,7 +315,7 @@ class DeclusterWdg(QWidget):
 			point = QgsPoint( float(row[longFieldIdx]), float(row[latFieldIdx]) )
 
 			f = QgsFeature()
-			f.setAttributeMap( attrs )
+			f.setAttributes( row[1:].tolist() )
 			f.setGeometry( QgsGeometry.fromPoint( point ) )
 
 			pr.addFeatures( [f] )
