@@ -87,9 +87,14 @@ class CompletenessWdg(QWidget):
 				**matrix** matrix with these columns in order: 
 					year, magnitude
 		"""
+		# convert QVariant objects to proper values
+		def toYearPart(date):
+			""" convert QVariant date object to (year, month, day) tuple """
+			d = Utils.valueFromQVariant(date)
+			return d.day
 
 		# convert QVariant objects to proper values
-		year = np.vectorize(lambda x: x.toDate().year())(matrix[:, 0])
+		year = np.vectorize(toYearPart)(matrix[:, 0])
 		magnitude = np.vectorize(lambda x: float(x) )(matrix[:, 1])
 
 		# get options
