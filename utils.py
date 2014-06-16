@@ -284,7 +284,7 @@ class LayerStyler:
 		# in QGis > 1.8 QgsMarkerSymbolV2 has 2 size scale methods: ScaleArea and ScaleDiameter.
 		# Let's use ScaleArea with a single symbol renderer!
 		if hasattr(QgsSymbolV2, 'ScaleArea'):
-			Utils.setSimpleStyle( vl, color=color, size=1.0, sizeScaleField=sizeField, sizeScaleMethod=QgsSymbolV2.ScaleArea )
+			LayerStyler.setSimpleStyle( vl, color=color, size=1.0, sizeScaleField=sizeField, sizeScaleMethod=QgsSymbolV2.ScaleArea )
 			return
 
 		# in QGis <= 1.8 we have to use a graduated renderer with 
