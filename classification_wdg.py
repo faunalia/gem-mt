@@ -328,14 +328,6 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		# compute the spatial filter
 		filteringGeom = bufferGeom.intersection( areaGeom )
-		
-		
-		
-		print filteringGeom
-		if filteringGeom: filteringGeom.exportToWkt()
-		
-		
-		
 		if not filteringGeom or filteringGeom.isGeosEmpty():
 			QMessageBox.warning(self, "Invalid area", "Intersection between the Area of interest and the selected classification buffer area is invalid or empty.")
 			return
@@ -501,7 +493,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			# set feature attributes
 			attrs = f.attributes()
 			attrs.append( 'shallow' if classType == 0 else 'deep' )
-			f.setAttributs( attrs )
+			f.setAttributes( attrs )
 
 			# add the feature
 			outpr.addFeatures( [f] )
