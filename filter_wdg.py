@@ -276,7 +276,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 		# spatial filter
 		spatialFilter = self.polygonDrawer.geometry()
 		if not spatialFilter:
-			extent = QgsRectangle()
+			extent = self.vl.extent()
 		else:
 			# convert the spatial filter to the layer CRS
 			toLayerCrsTransform = QgsCoordinateTransform( self.canvas.mapRenderer().destinationCrs(), self.vl.crs() )
