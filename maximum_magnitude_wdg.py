@@ -108,7 +108,12 @@ class MaximumMagnitudeWdg(QWidget):
 		"""
 
 		# convert QVariant objects to proper values
-		year = np.vectorize(lambda x: x.toDate().year())(matrix[:, 0])
+		def toYearPart(date):
+			""" convert QVariant date object to (year, month, day) tuple """
+			d = Utils.valueFromQVariant(date)
+			return d.year
+
+		year = np.vectorize(toYearPart)(matrix[:, 0])
 		magnitude = np.vectorize(lambda x: float(x))(matrix[:, 1])
 
 		if np.shape(matrix)[1] > 2:
