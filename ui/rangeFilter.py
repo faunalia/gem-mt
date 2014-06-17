@@ -343,6 +343,19 @@ class DateRangeFilter(RangeFilter):
             except:
                 pass
         
+        if type(val) in [unicode, str]:
+            s = unicode(val)
+            try:
+                newval = datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
+                ok = True
+            except ValueError:
+                pass
+            try:
+                newval = datetime.strptime(s, '%Y-%m-%d')
+                ok = True
+            except ValueError:
+                pass
+        
         if not ok: return
         
         return self._convertToValue( newval )
