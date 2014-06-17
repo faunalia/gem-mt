@@ -282,7 +282,7 @@ class FilterWdg(QWidget, Ui_FilterWdg):
 			toLayerCrsTransform = QgsCoordinateTransform( self.canvas.mapRenderer().destinationCrs(), self.vl.crs() )
 			ret = spatialFilter.transform( toLayerCrsTransform )
 			if ret != 0:
-				QMessageBox.warning(self, "Invalid area", "Unable to tranform the selected area to the layer CRS.")
+				QMessageBox.warning(self, "Invalid area", "Unable to transform the selected area to the layer CRS.")
 				return
 			extent = spatialFilter.boundingBox()
 
