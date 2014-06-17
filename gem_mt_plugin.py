@@ -142,6 +142,8 @@ class GEM_MT_Plugin:
 		""" load the CSV file selected by the user """
 		# ask for the csv file
 		filename = QFileDialog.getOpenFileName(self.iface.mainWindow(), "Select a csv file", "", "CSV file (*.csv)")
+		if not filename:
+			return
 		if filename and filename == "":
 			return	# cancel clicked
 
