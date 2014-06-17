@@ -20,30 +20,6 @@ email                : brush.tyler@gmail.com
  ***************************************************************************/
 """
 
-def name():
-	return "EQCAP - EarthQuake Catalogue Analysis Plugin"
-
-def description():
-	return "Analysing and Processing Earthquake Catalogue Data"
-
-def authorName():
-	return author()
-
-def author():
-	return "Giuseppe Sucameli (Faunalia)"
-
-def email():
-	return "sucameli@faunalia.it"
-
-def icon():
-	return "icons/logo.png"
-
-def version():
-	return "1.0.2"
-
-def qgisMinimumVersion():
-	return "1.5"
-
 def classFactory(iface):
 	from gem_mt_plugin import GEM_MT_Plugin
 	return GEM_MT_Plugin(iface)

@@ -24,8 +24,10 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from ui.DlgAbout_ui import Ui_DlgAbout
-from gem_mt import name, description, version
 import platform
+import re
+import ConfigParser
+import os
 
 try:
 	import resources
@@ -37,15 +39,22 @@ class AboutDlg(QDialog, Ui_DlgAbout):
 	def __init__(self, parent=None):
 		QDialog.__init__(self, parent)
 		self.setupUi(self)
-
+		
+		# read parameters from metadata.txt
+		config = ConfigParser.ConfigParser()
+		config.read( os.path.join( os.path.dirname(__file__), 'metadata.txt' ) )		
+		name = config.get("general", "name")
+		description = config.get("general", "description")
+		version = config.get("general", "version")
+		
 		self.logo.setPixmap( QPixmap( ":/faunalia/logo" ) )
-		self.title.setText( name() )
-		self.description.setText( description() )
+		self.title.setText( name )
+		self.description.setText( description )
 
 		text = self.txt.toHtml()
-		text = re.sub("$PLUGIN_NAME$", name(), text)
+		text = re.sub("\$PLUGIN_NAME\$", name, text)
 
-		subject = "Help: %s" % name()
+		subject = "Help: %s" % name
 		body = """\n\n
 --------
 Plugin name: %s
@@ -53,7 +62,7 @@ Plugin version: %s
 Python version: %s
 Platform: %s - %s
 --------
-""" % ( name(), version(), platform.python_version(), platform.system(), platform.version() )
+""" % ( name, version, platform.python_version(), platform.system(), platform.version() )
 
 		mail = QUrl( "mailto:abc@abc.com" )
 		mail.addQueryItem( "subject", subject )
