@@ -91,7 +91,7 @@ class CompletenessWdg(QWidget):
 		def toYearPart(date):
 			""" convert QVariant date object to (year, month, day) tuple """
 			d = Utils.valueFromQVariant(date)
-			return d.day
+			return d.year
 
 		# convert QVariant objects to proper values
 		year = np.vectorize(toYearPart)(matrix[:, 0])
