@@ -7,8 +7,8 @@ qgisMinimumVersion=2.0
 
 category=Plugin
 
-author=Giuseppe Sucameli (Faunalia)
-email=sucameli@faunalia.it
+author=Giuseppe Sucameli - Luigi Pirelli (Faunalia)
+email=info@faunalia.it
 
 ; end of mandatory metadata
 
@@ -27,4 +27,4 @@ repository=https://github.com/faunalia/gem-mt
 ; path to a icon within the plugin folder
 icon=icons/logo.png
 
-experimental=False
+experimental=True
