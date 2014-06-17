@@ -152,11 +152,10 @@ class ProcessingWdg(QWidget, Ui_ProcessingWdg):
 				continue
 
 			# create a new row: [id, *fields]
-			attrs = sorted( f.attributes() )
-			
+			attrs = f.attributes()
 			row = [ f.id() ]
-			for index, key in enumerate( attrs ):
-				row.append( key )
+			for index, val in enumerate( attrs ):
+				row.append( val )
 
 				# store the index of well-known field in the pan map so they
 				# can be found easily later
