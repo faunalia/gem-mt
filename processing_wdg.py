@@ -130,7 +130,7 @@ class ProcessingWdg(QWidget, Ui_ProcessingWdg):
 		# spatial filter
 		spatialFilter = self.polygonDrawer.geometry()
 		if not spatialFilter:
-			extent = QgsRectangle()
+			extent = classifiedVl.extent()
 		else:
 			# convert the spatial filter to the layer CRS
 			toLayerCrsTransform = QgsCoordinateTransform( self.canvas.mapRenderer().destinationCrs(), classifiedVl.crs() )
