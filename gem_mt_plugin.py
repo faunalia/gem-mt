@@ -146,7 +146,6 @@ class GEM_MT_Plugin:
 			return
 		if filename and filename == "":
 			return	# cancel clicked
-
 		
 		# unset the render flag
 		prev_render_flag = self.iface.mapCanvas().renderFlag()
