@@ -14,7 +14,8 @@ email=info@faunalia.it
 
 ; start of optional metadata
 
-changelog=change plugin name
+changelog=2.0
+	ported to qgis 2.x
 
 ; tags are in comma separated value format, spaces are allowed
 tags=earthquakes
