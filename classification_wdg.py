@@ -652,11 +652,11 @@ class ClassesTableModel(QStandardItemModel):
 
 		return row
 
-		def setData(self, index, data, role=Qt.EditRole):
-			ret = QStandardItemModel.setData(self, index, data, role)
-			if role == Qt.EditRole and index.column() == 0:
-				self.emit( SIGNAL("classNameChanged"), index )
-			return ret
+	def setData(self, index, data, role=Qt.EditRole):
+		ret = QStandardItemModel.setData(self, index, data, role)
+		if role == Qt.EditRole and index.column() == 0:
+			self.emit( SIGNAL("classNameChanged"), index )
+		return ret
 
 	def getClassName(self, index):
 		if index.isValid():
