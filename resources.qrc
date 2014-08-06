@@ -10,6 +10,8 @@
         <file alias="icons/refresh">icons/refresh.png</file>
         <file alias="icons/settings">icons/settings.png</file>
         <file alias="icons/about">icons/about.png</file>
+        <file alias="icons/polygon">icons/polygon.png</file>
+        <file alias="icons/editpolygon">icons/editpolygon.png</file>
     </qresource>
     <qresource prefix="/faunalia">
         <file alias="logo">icons/faunalia_logo.png</file>
