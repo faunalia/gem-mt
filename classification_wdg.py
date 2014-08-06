@@ -55,6 +55,15 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self.segmentDrawer.setAction( self.addBufferBtn )
 		self.connect(self.segmentDrawer, SIGNAL("geometryEmitted"), self.midlineBufferCreated)
 
+		# initialize the table that will contain classification classes
+		self.classesTable.setModel( ClassesTableModel(self.classesTable) )
+		#self.connect( self.classesTable.model(), SIGNAL("classNameChanged"), self.print1)
+		#self.classesTable.model().rowsRemoved.connect(self.print2)
+
+		# connect actions to the widgets
+		self.connect(self.addClassBtn, SIGNAL("clicked()"), self.addClass)
+		self.connect(self.delClassBtn, SIGNAL("clicked()"), self.deleteClass)
+
 		# initialize the table that will contain classification buffers
 		self.buffersTable.setModel( self.BuffersTableModel(self.buffersTable) )
 		self.connect( self.buffersTable.selectionModel(), SIGNAL("currentRowChanged(const QModelIndex &, const QModelIndex &)"), self.buffersSelectionChanged)
@@ -65,14 +74,20 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self.connect(self.clearAreaBtn, SIGNAL("clicked()"), self.clearArea)
 		self.connect(self.addBufferBtn, SIGNAL("clicked()"), self.drawBuffer)
 		self.connect(self.delBufferBtn, SIGNAL("clicked()"), self.deleteBuffer)
-		self.connect(self.crossSectionBtn, SIGNAL("clicked()"), self.openCrossSection)
+		self.connect(self.crossSectionBtn, SIGNAL("clicked()"), self.openSection)
+		self.connect(self.polygonSectionBtn, SIGNAL("clicked()"), self.openSection)
 		self.connect(self.displayClassifiedDataBtn, SIGNAL("clicked()"), self.loadClassifiedData)
 
 		# disable buttons
 		self.delBufferBtn.setEnabled(False)
 		self.crossSectionBtn.setEnabled(False)
+		self.polygonSectionBtn.setEnabled(False)
 
-
+	def print1(self):
+		print "print1" 
+	def print2(self, parent, start, end):
+		print "print2", parent, start, end
+	
 	def storePrevMapTool(self):
 		prevMapTool = self.canvas.mapTool()
 		if prevMapTool and prevMapTool not in (self.areaDrawer, self.segmentDrawer):
@@ -133,6 +148,43 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			if dlg:
 				dlg.hide()
 
+	def addClass(self):
+		# get default class name pasring last class name
+		defaultBaseName = "Poly"
+		model = self.classesTable.model()
+		maxIndex = 0
+		if model.rowCount() != 0:
+			# get max index
+			for index in range(model.rowCount()):
+				className = model.getClassName( model.index( index, 0) )
+				try:
+					currentIndex = int(className.split("_")[1])
+				except:
+					# no index found in the name => current index is invalid
+					currentIndex = -1
+				maxIndex = currentIndex+1 if currentIndex >= maxIndex else maxIndex
+				
+			# get the base name
+			className = model.getClassName( model.index( model.rowCount()-1, 0) )
+			defaultBaseName = className.split("_")[0]
+		newClassName = "%s_%d" % (defaultBaseName, maxIndex)
+		
+		# append the new classification class to the table
+		row = self.classesTable.model().append( newClassName )
+		self.classesTable.setCurrentIndex( self.buffersTable.model().index( row, 0 ) )
+	
+	def deleteClass(self, row=None):
+		""" delete the classification class at row """
+		model = self.classesTable.model()
+
+		if row is None:
+			row = self.classesTable.currentIndex().row()
+
+		if row < 0 or row >= model.rowCount():
+			return
+
+		# delete the item => rowsRemoved QAbstractItemModel will be emitted
+		model.removeRows( row, 1 )
 
 	def drawArea(self):
 		# store the previous maptool
@@ -283,6 +335,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			selected classification buffer """
 		self.delBufferBtn.setEnabled(current.isValid())
 		self.crossSectionBtn.setEnabled(current.isValid())
+		self.polygonSectionBtn.setEnabled(current.isValid())
 
 		model = self.buffersTable.model()
 		for index in (previous, current):
@@ -299,15 +352,22 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			self.redrawMidlineRubberBand(midlineRb, segment)
 
 
-	def openCrossSection(self):
+	def openSection(self):
 		QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+		
+		sender = self.sender()
 		try:
-			dlg = self._openCrossSection()
+			if sender == self.crossSectionBtn:
+				dlg = self._openSection(mode="cross")
+				return
+			if sender == self.polygonSectionBtn:
+				dlg = self._openSection(mode="polygon")
+				return
 		finally:
 			QApplication.restoreOverrideCursor()
 
-	def _openCrossSection(self):
-		""" open a cross section displaying geometries within this 
+	def _openSection(self, mode="cross"):
+		""" open a  or cross section displaying geometries within this 
 			classification buffer """
 		index = self.buffersTable.currentIndex()
 		if not index.isValid():
@@ -349,9 +409,6 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		
 		# field name
 		key2index = Utils.key2indexFieldMap( self.vl.dataProvider().fields() )
-		
-		print key2index
-		
 		depthIndex =  key2index['depth']
 		
 		request = QgsFeatureRequest()
@@ -375,16 +432,23 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			info.append( f.id() )
 
 		if len(x) <= 0:
-			QMessageBox.information(self, "Cross section", "No features in the result")
+			QMessageBox.information(self, "Section", "No features in the result")
 			return
 
 		# plot now!
 		if not dlg:
-			from cross_section_wdg import CrossSectionDlg
-			dlg = CrossSectionDlg(self._sharedData, self)
+			if mode == "polygon":
+				from polygon_section_wdg import PolygonSectionDlg
+				dlg = PolygonSectionDlg(self._sharedData, self, self.classesTable.model())
+			elif mode == "cross":
+				from cross_section_wdg import CrossSectionDlg
+				dlg = CrossSectionDlg(self._sharedData, self)
+			else:
+				QMessageBox.critical(self, "Section", "Incorrect section mode = %s" % mode)
+				return
+
 			self.connect(dlg, SIGNAL("classificationUpdateRequested"), self.updateClassification)
 			self.connect(self, SIGNAL("classificationUpdated"), dlg.refresh)
-
 			# store the dialog into the item data
 			model.setAdditionalData( index, [segment, (midlineRb, bufferRb), dlg] )
 
@@ -563,4 +627,50 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		def setAdditionalData(self, index, data):
 			if index.isValid():
 				self.setData( self.index(index.row(), 0), data, Qt.UserRole )
+
+
+class ClassesTableModel(QStandardItemModel):
+	def __init__(self, parent=None):
+		self.header = ["Class name"]
+		QStandardItemModel.__init__(self, 0, len(self.header), parent)
+
+	def headerData(self, section, orientation, role):
+		if role == Qt.DisplayRole:
+			if orientation == Qt.Horizontal:
+				return self.header[section]
+			if orientation == Qt.Vertical:
+				return section+1
+		return None
+
+	def append(self, className):
+		item = QStandardItem()
+		item.setFlags( item.flags() | Qt.ItemIsEditable )
+
+		self.appendRow( [item] )
+		row = self.rowCount()-1
+		self.setClassName(self.index(row, 0), className)
+
+		return row
+
+		def setData(self, index, data, role=Qt.EditRole):
+			ret = QStandardItemModel.setData(self, index, data, role)
+			if role == Qt.EditRole and index.column() == 0:
+				self.emit( SIGNAL("classNameChanged"), index )
+			return ret
+
+	def getClassName(self, index):
+		if index.isValid():
+			return self.data( self.index(index.row(), 0) )
+
+	def setClassName(self, index, className):
+		if index.isValid():
+			self.setData( self.index(index.row(), 0), className )
+
+	def getAdditionalData(self, index):
+		if index.isValid():
+			return self.data( self.index(index.row(), 0), Qt.UserRole )
+
+	def setAdditionalData(self, index, data):
+		if index.isValid():
+			self.setData( self.index(index.row(), 0), data, Qt.UserRole )
 

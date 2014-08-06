@@ -231,7 +231,10 @@ class PlotDlg(QtGui.QDialog):
 		QtGui.QDialog.__init__(self, parent, QtCore.Qt.Window)
 		self.setWindowTitle( kwargs.get('title', 'Plot dialog') )
 
+		self.hLayout = QtGui.QHBoxLayout(self)
 		layout = QtGui.QVBoxLayout(self)
+		self.vLayout = layout # to avoid renaming layout and modify all the code
+		self.hLayout.addLayout(self.vLayout)
 
 		self.plot = self.createPlot(*args, **kwargs)
 		layout.addWidget(self.plot)

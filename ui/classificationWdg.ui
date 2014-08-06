@@ -6,17 +6,68 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>275</width>
-    <height>334</height>
+    <width>430</width>
+    <height>641</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <property name="margin">
-    <number>0</number>
-   </property>
+   <item>
+    <widget class="QGroupBox" name="groupBox_3">
+     <property name="title">
+      <string>Polygon classes (&quot;_&quot; index separator)</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_3">
+      <item row="0" column="1" colspan="2">
+       <widget class="QToolButton" name="addClassBtn">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>New</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0" rowspan="3">
+       <widget class="QTableView" name="classesTable">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="selectionMode">
+         <enum>QAbstractItemView::SingleSelection</enum>
+        </property>
+        <property name="selectionBehavior">
+         <enum>QAbstractItemView::SelectRows</enum>
+        </property>
+        <attribute name="horizontalHeaderStretchLastSection">
+         <bool>true</bool>
+        </attribute>
+       </widget>
+      </item>
+      <item row="1" column="1" colspan="2">
+       <widget class="QToolButton" name="delClassBtn">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Delete</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
    <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
@@ -49,7 +100,7 @@
       <string>Classification buffers</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="0" column="2">
+      <item row="0" column="1" colspan="2">
        <widget class="QToolButton" name="addBufferBtn">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -65,33 +116,7 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="2">
-       <widget class="QToolButton" name="delBufferBtn">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="text">
-         <string>Delete</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="2">
-       <spacer name="verticalSpacer">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>37</width>
-          <height>50</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item row="0" column="0" rowspan="5" colspan="2">
+      <item row="0" column="0" rowspan="9">
        <widget class="QTableView" name="buffersTable">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
@@ -110,8 +135,8 @@
         </attribute>
        </widget>
       </item>
-      <item row="3" column="2">
-       <widget class="QPushButton" name="crossSectionBtn">
+      <item row="1" column="1" colspan="2">
+       <widget class="QToolButton" name="delBufferBtn">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
           <horstretch>0</horstretch>
@@ -119,12 +144,11 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>Open the 
-cross section</string>
+         <string>Delete</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="2">
+      <item row="2" column="1" rowspan="2">
        <spacer name="verticalSpacer_3">
         <property name="orientation">
          <enum>Qt::Vertical</enum>
@@ -139,6 +163,34 @@ cross section</string>
          </size>
         </property>
        </spacer>
+      </item>
+      <item row="4" column="1" rowspan="2" colspan="2">
+       <widget class="QPushButton" name="crossSectionBtn">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Open the 
+cross section</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1" rowspan="3" colspan="2">
+       <widget class="QPushButton" name="polygonSectionBtn">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Open the 
+polygon section</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
