@@ -19,7 +19,8 @@ email                : brush.tyler@gmail.com
  *                                                                         *
  ***************************************************************************/
 """
-
+import random
+import string
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
@@ -57,6 +58,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 		# initialize the table that will contain classification classes
 		self.classesTable.setModel( ClassesTableModel(self.classesTable) )
+		self.classesTable.setColumnHidden(1, True)
 		#self.connect( self.classesTable.model(), SIGNAL("classNameChanged"), self.print1)
 		#self.classesTable.model().rowsRemoved.connect(self.print2)
 
@@ -631,7 +633,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 class ClassesTableModel(QStandardItemModel):
 	def __init__(self, parent=None):
-		self.header = ["Class name"]
+		self.header = ["Class name", "Identifier"]
 		QStandardItemModel.__init__(self, 0, len(self.header), parent)
 
 	def headerData(self, section, orientation, role):
@@ -648,6 +650,9 @@ class ClassesTableModel(QStandardItemModel):
 
 		self.appendRow( [item] )
 		row = self.rowCount()-1
+		
+		uniqueIndex = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
+		self.setClassId(self.index(row, 1), uniqueIndex)
 		self.setClassName(self.index(row, 0), className)
 
 		return row
@@ -665,6 +670,14 @@ class ClassesTableModel(QStandardItemModel):
 	def setClassName(self, index, className):
 		if index.isValid():
 			self.setData( self.index(index.row(), 0), className )
+
+	def setClassId(self, index, classId):
+		if index.isValid():
+			self.setData( self.index(index.row(), 1), classId )
+
+	def getClassId(self, index):
+		if index.isValid():
+			return self.data( self.index(index.row(), 1) )
 
 	def getAdditionalData(self, index):
 		if index.isValid():
