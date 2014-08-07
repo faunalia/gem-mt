@@ -292,7 +292,7 @@ class GEM_MT_Plugin:
 			return
 
 		# set style
-		LayerStyler.setClassifiedStyle( vl, classField, 0.8 )
+		LayerStyler.setClassifiedStyle( vl, classField, 1.5 )
 
 		self.classifiedVl = vl
 		QObject.connect( self.classifiedVl, SIGNAL("layerDeleted()"), self.classifiedLayerDestroyed )
