@@ -5,7 +5,7 @@
 Name			 	: GEM Modellers Toolkit plugin (GEM-MT)
 Description			: Analysing and Processing Earthquake Catalogue Data
 Date				: Jun 21, 2012 
-copyright			: (C) 2012 by Giuseppe Sucameli (Faunalia)
+copyright			: (C) 2012 by Luigi Pirelli - Giuseppe Sucameli(Faunalia)
 email				: brush.tyler@gmail.com
  ****************************************************************************/
 
