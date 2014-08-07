@@ -40,14 +40,6 @@ class PolygonSectionDlg(PlotDlg):
 		# add lateral toolbar with list of classes and buttons
 		self.toolbar = ClassesToolbar( parent=self, model=classModel )
 		self.hLayout.insertWidget( 0, self.toolbar )
-				
-		# get model from class table widget of the parent classification 
-# 		if classModel:
-# 			model = ClassificationTableModel(self) # new model based on the classModel adding some infos
-# 			model.setSourceModel(classModel)
-# 			model.setHeaderData(0, QtCore.Qt.Horizontal, "Class name" )
-# 			model.setHeaderData(1, QtCore.Qt.Horizontal, "Drawn" )
-# 			self.toolbar.classesTable.setModel(classModel)
 
 	def createPlot(self):
 		return PolygonSectionGraph( self._classificationMap )
@@ -55,15 +47,21 @@ class PolygonSectionDlg(PlotDlg):
 	def createToolBar(self):
 		return NavigationToolbarPolygonSection(self.plot, self)
 
-
 	def closeEvent(self, event):
 		self.updateClassification()
 		return QtGui.QDialog.closeEvent(self, event)
 
-		
 	def updateClassification(self):
 		self.emit( QtCore.SIGNAL("classificationUpdateRequested") )
 
+	def refreshClasses(self):
+		self.toolbar.refreshClasses()
+	
+	def showEvent(self, event):
+		""" overloading of showEvent from QDialog, Every rhow refresh drawn polygons 
+		in case some classes have been deleted """
+		self.refreshClasses()
+	
 	def classify(self):
 # 		path = self.plot.polygon.get_path()
 # 		
@@ -119,14 +117,14 @@ class ClassesToolbar(QtGui.QWidget, Ui_crossSectionClassesToolbar):
 		if model:
 			self.classesTable.setModel(model)
 			self.classesTable.setColumnHidden(1, True)
-			self.classesTable.model().dataChanged.connect(self.print1)
-			self.classesTable.model().rowsRemoved.connect(self.print2)
 			self.classesTable.model().dataChanged.connect(self.manageRenameClass)
+			#self.classesTable.model().dataChanged.connect(self.print1)
+			#self.classesTable.model().rowsRemoved.connect(self.print2)
 			#self.classesTable.model().rowsRemoved.connect(self.print2)
 	
 		# data model to contain polygon and labels
 		# will be a dictionary as:
-		# self.drawnClasses[self.currentClassName] = {"name":str, "polygon":plt.polygon, "label":plt.text}
+		# self.drawnClasses[self.currentClassId] = {"name":str, "polygon":plt.polygon, "label":plt.text}
 		self.drawnClasses = {}
 
 	def print1(self, topLeft, bottomRight):
@@ -134,18 +132,32 @@ class ClassesToolbar(QtGui.QWidget, Ui_crossSectionClassesToolbar):
 	def print2(self, parent, start, end):
 		print "removed", parent, start, end
 	
+	def refreshClasses(self):
+		model = self.classesTable.model()
+		classesId = self.drawnClasses.keys()
+		for classId in classesId:
+			# check if class is available in classesTable model
+			matches = model.match( model.index(0,1), QtCore.Qt.EditRole, classId, -1, QtCore.Qt.MatchExactly )
+			if len(matches) > 0:
+				continue
+			
+			# remove polygon
+			self.drawnClasses[classId]["polygon"].remove()
+			self.drawnClasses[classId]["polygon"].set_visible(False)
+			if self.drawnClasses[classId]["label"]:
+				self.drawnClasses[classId]["label"].remove()
+				self.drawnClasses[classId]["label"].set_visible(False)
+			self.drawnClasses.pop(classId)
+			self.canvas.draw()
+	
 	def manageRenameClass(self, topLeft, bottomRight):
-		print topLeft.isValid()
 		if not topLeft.isValid():
 			return
 		
 		self.currentClassId = topLeft.model().getClassId( topLeft )
 		self.currentClassName = topLeft.model().getClassName( topLeft )
-		print self.currentClassId, self.currentClassName
 		if self.currentClassId in self.drawnClasses:
-			print "found"
 			if self.drawnClasses[self.currentClassId]["label"]:
-				print "found label"
 				self.drawnClasses[self.currentClassId]["label"].set_text(self.currentClassName)
 				self.canvas.draw()
 			
@@ -159,7 +171,6 @@ class ClassesToolbar(QtGui.QWidget, Ui_crossSectionClassesToolbar):
 		self.currentClassId = index.model().getClassId( index )
 		self.currentClassName = index.model().getClassName( index )
 		if self.currentClassId in self.drawnClasses:
-			print "remove", self.currentClassId, self.currentClassName
 			self.drawnClasses[self.currentClassId]["polygon"].remove()
 			self.drawnClasses[self.currentClassId]["polygon"].set_visible(False)
 			if self.drawnClasses[self.currentClassId]["label"]:
@@ -186,7 +197,6 @@ class ClassesToolbar(QtGui.QWidget, Ui_crossSectionClassesToolbar):
 		index = indexes[0]
 		self.currentClassId = index.model().getClassId( index )
 		self.currentClassName = index.model().getClassName( index )
-		print self.currentClassId, self.currentClassName
 		
 		# init polygon data
 		if self.currentClassId in self.drawnClasses:
@@ -262,7 +272,7 @@ class ClassesToolbar(QtGui.QWidget, Ui_crossSectionClassesToolbar):
 			self.drawnClasses[self.currentClassId]["polygon"].set_xy(self.vertices)
 			
 			# set label of the poligon in this last point
-			label = self.canvas.axes.text(event.xdata, event.ydata, self.currentClassName)
+			label = self.canvas.axes.text(event.xdata, event.ydata, self.currentClassName, style="italic", color="r")
 			self.drawnClasses[self.currentClassId]["label"] = label
 			
 			# terminate editing
