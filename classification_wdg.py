@@ -28,7 +28,7 @@ from qgis.core import *
 from qgis.gui import *
 
 from MapTools import PolygonDrawer, SegmentDrawer
-from utils import Utils, LayerStyler
+from .utils import Utils, LayerStyler
 
 from ui.classificationWdg_ui import Ui_ClassificationWdg
 
@@ -150,6 +150,16 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			if dlg:
 				dlg.hide()
 
+	def updateClassifiedSymobolgy(self):
+		model = self.classesTable.model()
+		classes = []
+		for index in range(model.rowCount()):
+			classes.append( model.getClassName(model.index( index, 0)) )
+		
+		# get involved fields to set layer style
+		classifiedVl = Utils.classifiedVl()
+		LayerStyler.setClassifiedGraduatedStyle(classifiedVl, "classType", classes)
+		
 	def addClass(self):
 		# get default class name pasring last class name
 		defaultBaseName = "Poly"
@@ -174,7 +184,10 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		# append the new classification class to the table
 		row = self.classesTable.model().append( newClassName )
 		self.classesTable.setCurrentIndex( self.buffersTable.model().index( row, 0 ) )
-	
+		
+		# update lcassification
+		self.updateClassifiedSymobolgy()
+		
 	def deleteClass(self, row=None):
 		""" delete the classification class at row """
 		model = self.classesTable.model()
@@ -188,6 +201,9 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		# delete the item => rowsRemoved QAbstractItemModel will be emitted
 		model.removeRows( row, 1 )
 
+		# update lcassification
+		self.updateClassifiedSymobolgy()
+		
 	def drawArea(self):
 		# store the previous maptool
 		self.storePrevMapTool()

@@ -437,12 +437,26 @@ class LayerStyler:
 		Utils.iface.legendInterface().refreshLayerSymbology(vl)
 
 	@staticmethod
-	def setClassifiedStyle(vl, field, size=1.0):
+	def setClassifiedStyle(vl, field, size=1.5):
+		classes = ["shallow", "deep"]
+		LayerStyler.setClassifiedGraduatedStyle(vl, field, classes, size)
+
+	@staticmethod
+	def setClassifiedGraduatedStyle(vl, field, classes, size=1.5):
+		# create a color generator red->yellow
+		if len(classes) > 1:
+			colors = Utils.colorGenerator(QColor("cyan"), QColor("blue"), len(classes))
+			colors = [c for c in colors]
+		else:
+			colors = [QColor("cyan")]
+		
 		# create categories
-		categories = [
-			("shallow", "shallow", {'color':QColor("red"), 'size':size}),	# shallow earthquakes in red
-			("deep", "deep", {'color':QColor("blue"), 'size':size})	# deep earthquakes in blue
-		]
+		categories = []
+		for index, className in enumerate(classes):
+			label = className
+			value = className
+			category = (label, value, {'color':colors[index], 'size':size})
+			categories.append(category)
 
 		# put advanced rendering options into the props dictionary
 		props = {}
