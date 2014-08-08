@@ -59,9 +59,13 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		# initialize the table that will contain classification classes
 		self.classesTable.setModel( ClassesTableModel(self.classesTable) )
 		self.classesTable.setColumnHidden(1, True)
-		#self.connect( self.classesTable.model(), SIGNAL("classNameChanged"), self.print1)
-		#self.classesTable.model().rowsRemoved.connect(self.print2)
-
+		self.connect( self.classesTable.model(), SIGNAL("classNameChanged"), self.updateClassifiedSymobolgy)
+		self.classesTable.model().dataChanged.connect(self.updateClassifiedSymobolgy)
+		self.classesTable.model().rowsRemoved.connect(self.updateClassifiedSymobolgy)
+		self.connect( self.classesTable.model(), SIGNAL("classNameChanged"), self.updateClassification)
+		self.classesTable.model().dataChanged.connect(self.updateClassification)
+		self.classesTable.model().rowsRemoved.connect(self.updateClassification)
+		
 		# connect actions to the widgets
 		self.connect(self.addClassBtn, SIGNAL("clicked()"), self.addClass)
 		self.connect(self.delClassBtn, SIGNAL("clicked()"), self.deleteClass)
@@ -185,9 +189,6 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		row = self.classesTable.model().append( newClassName )
 		self.classesTable.setCurrentIndex( self.buffersTable.model().index( row, 0 ) )
 		
-		# update lcassification
-		self.updateClassifiedSymobolgy()
-		
 	def deleteClass(self, row=None):
 		""" delete the classification class at row """
 		model = self.classesTable.model()
@@ -201,9 +202,6 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		# delete the item => rowsRemoved QAbstractItemModel will be emitted
 		model.removeRows( row, 1 )
 
-		# update lcassification
-		self.updateClassifiedSymobolgy()
-		
 	def drawArea(self):
 		# store the previous maptool
 		self.storePrevMapTool()
@@ -486,7 +484,8 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 	def _updateClassification(self):
 		model = self.buffersTable.model()
-
+		classModel = self.classesTable.model()
+		
 		# update the earthquakes classification
 		self._sharedData.clear()
 
@@ -496,18 +495,26 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			if not dlg:
 				continue
 
-			classified = (shallow, deep) = dlg.classify()
+			#classified = (shallow, deep) = dlg.classify()
+			classified = dlg.classify()
 
 			# update the shared data
-			for typeIndex, data in enumerate( classified ):
-				for fid in data:
-					# avoid duplicates
-					if self._sharedData.has_key(fid):
-						# do not update shallow earthquakes
-						if self._sharedData[ fid ] == 0:	
-							continue	# already present
-
-					self._sharedData[ fid ] = typeIndex
+			for classId, pointsArray in classified.items():
+				for fid in pointsArray:
+					# !!! BEAWARE !!! to mantain compatibility with the old _sharedData <=> _classifiedMap
+					# where fid=classIndex (0=shallow, 1=deep)
+					# instead of: self._sharedData[ fid ] = classId
+					# I'll set the row number of the class
+					
+					# get row number of the class 
+					matches = classModel.match( classModel.index(0,1), Qt.EditRole, classId, -1, Qt.MatchExactly )
+					if len(matches) == 0:
+						self.iface.messageBar().pushMessage("Some classified points have no more associated class", QgsMessageBar.WARNING, 3)
+						continue
+					rowNumber = matches[0].row()
+					
+					# set the classification as the row number of class in classesTable 
+					self._sharedData[ fid ] = int(rowNumber)
 
 		self.emit( SIGNAL("classificationUpdated") )
 
@@ -565,7 +572,15 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			# skip unclassified data
 			if f.id() not in self._sharedData:
 				continue
-			classType = self._sharedData[ f.id() ]
+			classRowNumber = self._sharedData[ f.id() ]
+			
+			# look for the className associated to this classId
+			model = self.classesTable.model()
+			index = model.index(classRowNumber,0)
+			if not index.isValid():
+				self.iface.messageBar().pushMessage("Some classified points have no more associated class", QgsMessageBar.WARNING, 3)
+				continue
+			className = model.getClassName(index)
 
 			# transform to classified layer CRS
 			if geom.transform( betweenLayersCrsTransform ) != 0:
@@ -574,7 +589,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 
 			# set feature attributes
 			attrs = f.attributes()
-			attrs.append( 'shallow' if classType == 0 else 'deep' )
+			attrs.append( className )
 			f.setAttributes( attrs )
 
 			# add the feature

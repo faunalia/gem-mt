@@ -40,6 +40,9 @@ class PolygonSectionDlg(PlotDlg):
 		# add lateral toolbar with list of classes and buttons
 		self.toolbar = ClassesToolbar( parent=self, model=classModel )
 		self.hLayout.insertWidget( 0, self.toolbar )
+		
+		# notify to the plot the classes
+		self.plot.setClasses(classModel)
 
 	def createPlot(self):
 		return PolygonSectionGraph( self._classificationMap )
@@ -63,32 +66,32 @@ class PolygonSectionDlg(PlotDlg):
 		self.refreshClasses()
 	
 	def classify(self):
-# 		path = self.plot.polygon.get_path()
-# 		
-# 		# classify earthquakes and discard indeterminate ones 
-# 		shallow, deep = [], []
-# 		for index in range(len(self.plot.x)):
-# 			point = self.plot.itemAt(index)
-# 			if not point:
-# 				continue
-# 
-# 			px, py = point
-# 			info = self.plot.info[index]
-# 			
-# 			# check if point is in polygon
-# 			if self.plot.polygon.contains_point(point);
-# 			if py > hy:
-# 				shallow.append( info )
-# 			elif ocoeff == None:
-# 				if px <= ox0:
-# 					deep.append( info )
-# 			else:
-# 				y = ocoeff * (px - ox0) + oy0
-# 				if py <= y:
-# 					deep.append( info )
+		# create empty class array dictionary
+		classification = {x:[] for x in self.toolbar.drawnClasses.keys() }
 		
-		shallow, deep = [], []
-		return (shallow, deep)
+		# for each point in the plot
+ 		# classify earthquakes and discard indeterminate ones
+		for classId in self.toolbar.drawnClasses.keys():
+			polygon = self.toolbar.drawnClasses[classId]["polygon"]
+		
+ 		for index in range(len(self.plot.x)):
+ 			point = self.plot.itemAt(index)
+ 			if not point:
+ 				continue
+  			
+ 			px, py = point
+ 			info = self.plot.info[index]
+ 			
+ 			# check if point belogs to some class polygon
+			for classId in self.toolbar.drawnClasses.keys():
+				polygon = self.toolbar.drawnClasses[classId]["polygon"]
+ 				if not polygon.get_path().contains_point(point, radius=0.001):
+ 					continue
+ 				
+ 				# then classify this point
+ 			 	classification[classId].append(info)
+ 			 	
+ 		return classification
 
 
 from .ui.crosssection_classes_toolbar_ui import Ui_crossSectionClassesToolbar
@@ -348,29 +351,37 @@ class PolygonSectionGraph(PlotWdg):
 		x = map(Utils.valueFromQVariant, self.x)
 		y = map(Utils.valueFromQVariant, self.y)
 
-		# split values in 3 classes: shallow, deep and unclassified earthquakes
-		classes = (shallow, deep, unclassified) = ( ([],[]), ([],[]), ([],[]) )
+		# !!! BEAWARE !!! to mantain compatibility with the old _sharedData <=> _classifiedMap
+		# where fid=classIndex (0=shallow, 1=deep)
+		# instead of: self._sharedData[ fid ] = classId
+		# I'll set the row number of the class
+		# split values in classes (how many in the model) + unclassified earthquakes
+		#classes = (shallow, deep, unclassified) = ( ([],[]), ([],[]), ([],[]) )
+		classes = [ ([], []) for _ in range(self.classesModel.rowCount() + 1) ] # <= add 1 for  unclassified earthquakes
+		
 		for index in range(len(self.x)):
 			fid = self.info[index]
 			if not self._classificationMap.has_key( fid ):
-				classData = classes[2]	# unclassified
+				classRow = -1 # unclassified
 			else:
-				classData = classes[ self._classificationMap[ fid ] ]
-			classData[0].append( self.x[index] )
-			classData[1].append( self.y[index] )
+				classRow = self._classificationMap[ fid ]
+				
+			classes[classRow][0].append( self.x[index] )
+			classes[classRow][1].append( self.y[index] )
 		
-		# plot the both the earthquakes classes
-		if shallow[0] and shallow[1]:
-			shallowItems = self.axes.scatter(shallow[0], shallow[1], marker='o', c='r')
-			self.collections.append( shallowItems )
+		# plot the earthquakes classes
+		colors = Utils.colorGenerator(QtGui.QColor("cyan"), QtGui.QColor("blue"), len(classes)-1)
+		colors = [c for c in colors]
 
-		if deep[0] and deep[1]:
-			deepItems = self.axes.scatter(deep[0], deep[1], marker='o', c='b')
-			self.collections.append( deepItems )
-
-		if unclassified[0] and unclassified[1]:
-			unclassifiedItems = self.axes.scatter(unclassified[0], unclassified[1], marker='x', c='k')
-			self.collections.append( unclassifiedItems )
+		for row, classData in enumerate(classes):
+			if classData[0] and classData[1]:
+				if row == len(classes)-1:
+					# unclassified
+					items = self.axes.scatter(classData[0], classData[1], marker='x', c='k')
+				else:
+					# belong to a class
+					items = self.axes.scatter(classData[0], classData[1], marker='o', c=colors[row].name()) # color will be '#ff00ff'
+				self.collections.append( items )
 
 
 class NavigationToolbarPolygonSection(NavigationToolbar):
