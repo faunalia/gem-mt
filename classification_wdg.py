@@ -87,6 +87,7 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		# disable buttons
 		self.delBufferBtn.setEnabled(False)
 		self.crossSectionBtn.setEnabled(False)
+		self.crossSectionBtn.setVisible(False)
 		self.polygonSectionBtn.setEnabled(False)
 
 	def storePrevMapTool(self):
