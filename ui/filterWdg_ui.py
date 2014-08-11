@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'filterWdg.ui'
+# Form implementation generated from reading ui file 'ui/filterWdg.ui'
 #
-# Created: Mon Jul  2 13:22:53 2012
-#      by: PyQt4 UI code generator 4.8.3
+# Created: Mon Aug  4 15:41:04 2014
+#      by: PyQt4 UI code generator 4.9.3
 #
 # WARNING! All changes made in this file will be lost!
 
