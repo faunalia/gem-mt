@@ -19,6 +19,8 @@ email				: brush.tyler@gmail.com
  ****************************************************************************/
 """
 
+import qgis.utils
+from qgis.gui import QgsMessageBar
 from PyQt4 import QtGui, QtCore
 from .utils import Utils
 
@@ -121,20 +123,13 @@ class ClassesToolbar(QtGui.QWidget, Ui_crossSectionClassesToolbar):
 			self.classesTable.setModel(model)
 			self.classesTable.setColumnHidden(1, True)
 			self.classesTable.model().dataChanged.connect(self.manageRenameClass)
-			#self.classesTable.model().dataChanged.connect(self.print1)
-			#self.classesTable.model().rowsRemoved.connect(self.print2)
-			#self.classesTable.model().rowsRemoved.connect(self.print2)
+			self.classesTable.model().rowsRemoved.connect(self.manageRemovedClass)
 	
 		# data model to contain polygon and labels
 		# will be a dictionary as:
 		# self.drawnClasses[self.currentClassId] = {"name":str, "polygon":plt.polygon, "label":plt.text}
 		self.drawnClasses = {}
 
-	def print1(self, topLeft, bottomRight):
-		print "value changed or added element", topLeft.row() 
-	def print2(self, parent, start, end):
-		print "removed", parent, start, end
-	
 	def refreshClasses(self):
 		model = self.classesTable.model()
 		classesId = self.drawnClasses.keys()
@@ -163,6 +158,23 @@ class ClassesToolbar(QtGui.QWidget, Ui_crossSectionClassesToolbar):
 			if self.drawnClasses[self.currentClassId]["label"]:
 				self.drawnClasses[self.currentClassId]["label"].set_text(self.currentClassName)
 				self.canvas.draw()
+			
+	def manageRemovedClass(self, index, first, last):
+		# check if polygon is available and remove that without class associated
+		model = self.classesTable.model()
+		for classId in self.drawnClasses.keys():
+			matches = model.match( model.index(0,1), QtCore.Qt.EditRole, classId, -1, QtCore.Qt.MatchExactly )
+			if len(matches) != 0:
+				continue
+			
+			self.drawnClasses[classId]["polygon"].remove()
+			self.drawnClasses[classId]["polygon"].set_visible(False)
+			if self.drawnClasses[classId]["label"]:
+				self.drawnClasses[classId]["label"].remove()
+				self.drawnClasses[classId]["label"].set_visible(False)
+			self.drawnClasses.pop(classId)
+
+		self.canvas.draw()
 			
 	def removePolygon(self):
 		# check if a class is selected
@@ -345,42 +357,56 @@ class PolygonSectionGraph(PlotWdg):
 		PlotWdg.__init__(self,	*args, **kwargs)
 		self.polygon = None
 		self._classificationMap = classificationMap
+		self.iface = qgis.utils.iface
 
 	def _plot(self):
 		# convert values, then create the plot
 		x = map(Utils.valueFromQVariant, self.x)
 		y = map(Utils.valueFromQVariant, self.y)
 
-		# !!! BEAWARE !!! to mantain compatibility with the old _sharedData <=> _classifiedMap
-		# where fid=classIndex (0=shallow, 1=deep)
-		# instead of: self._sharedData[ fid ] = classId
-		# I'll set the row number of the class
-		# split values in classes (how many in the model) + unclassified earthquakes
-		#classes = (shallow, deep, unclassified) = ( ([],[]), ([],[]), ([],[]) )
-		classes = [ ([], []) for _ in range(self.classesModel.rowCount() + 1) ] # <= add 1 for  unclassified earthquakes
+		# create array of coordinates basing on classes + "unclassified"
+		unclassifiedClassId = "unclassified" 
+		classes = {unclassifiedClassId:([],[])}
 		
+		for row in range(self.classesModel.rowCount()):
+			index = self.classesModel.index(row,0)
+			classId = 	self.classesModel.getClassId(index)
+			classes[classId] = ([], [])
+		
+		# populate classes dictionary
 		for index in range(len(self.x)):
 			fid = self.info[index]
 			if not self._classificationMap.has_key( fid ):
-				classRow = -1 # unclassified
+				classId = unclassifiedClassId
 			else:
-				classRow = self._classificationMap[ fid ]
+				classId = self._classificationMap[ fid ]
+				# check if class is still available
+				matches = self.classesModel.match( self.classesModel.index(0,1), QtCore.Qt.EditRole, classId, -1, QtCore.Qt.MatchExactly )
+				if len(matches) == 0:
+					classId = unclassifiedClassId
 				
-			classes[classRow][0].append( self.x[index] )
-			classes[classRow][1].append( self.y[index] )
+			classes[classId][0].append( self.x[index] )
+			classes[classId][1].append( self.y[index] )
 		
 		# plot the earthquakes classes
-		colors = Utils.colorGenerator(QtGui.QColor("cyan"), QtGui.QColor("blue"), len(classes)-1)
+		colors = Utils.colorGenerator(QtGui.QColor("cyan"), QtGui.QColor("blue"), self.classesModel.rowCount())
 		colors = [c for c in colors]
 
-		for row, classData in enumerate(classes):
+		for classId, classData in classes.items():
 			if classData[0] and classData[1]:
-				if row == len(classes)-1:
+				if classId == unclassifiedClassId:
 					# unclassified
 					items = self.axes.scatter(classData[0], classData[1], marker='x', c='k')
 				else:
 					# belong to a class
-					items = self.axes.scatter(classData[0], classData[1], marker='o', c=colors[row].name()) # color will be '#ff00ff'
+					# check the class row => to determine the color
+					matches = self.classesModel.match( self.classesModel.index(0,1), QtCore.Qt.EditRole, classId, -1, QtCore.Qt.MatchExactly )
+					if len(matches) == 0:
+						self.iface.messageBar().pushMessage("Some classified points have no more associated class", QgsMessageBar.WARNING, 1)
+						items = self.axes.scatter(classData[0], classData[1], marker='v', c="r") # color will be '#ff00ff'
+					else:
+						row = matches[0].row()
+						items = self.axes.scatter(classData[0], classData[1], marker='o', c=colors[row].name()) # color will be '#ff00ff'
 				self.collections.append( items )
 
 

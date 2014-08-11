@@ -40,7 +40,8 @@ class PlotWdg(FigureCanvasQTAgg):
 
 		self.fig = Figure()
 		self.axes = self.fig.add_subplot(111)
-
+		self.classesModel = None
+		
 		# initialize the canvas where the Figure renders into
 		FigureCanvasQTAgg.__init__(self, self.fig)
 
@@ -121,26 +122,23 @@ class PlotWdg(FigureCanvasQTAgg):
 		self.axes.set_xlabel( xLabel or "" )
 		self.axes.set_ylabel( yLabel or "" )
 
+	def setClasses(self, classes):
+		self.classesModel = classes
+
 	def _removeItem(self, item):
-		try:
-			self.collections.remove( item )
-		except ValueError:
-			pass
-
-		try:
-			if isinstance(item, (list, tuple, set)):
-				for i in item:
-					i.remove()
-			else:
-				item.remove()
-		except AttributeError:
-			pass
-
+		if isinstance(item, (list, tuple, set)):
+			for i in item:
+				i.remove()
+				i.set_visible(False)
+		else:
+			item.remove()
+			item.set_visible(False)
 
 	def _clear(self):
 		for item in self.collections:
 			self._removeItem( item )
-
+		
+		del self.collections[:]
 		self.collections = []
 
 	def _plot(self):

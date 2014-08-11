@@ -89,11 +89,6 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 		self.crossSectionBtn.setEnabled(False)
 		self.polygonSectionBtn.setEnabled(False)
 
-	def print1(self):
-		print "print1" 
-	def print2(self, parent, start, end):
-		print "print2", parent, start, end
-	
 	def storePrevMapTool(self):
 		prevMapTool = self.canvas.mapTool()
 		if prevMapTool and prevMapTool not in (self.areaDrawer, self.segmentDrawer):
@@ -501,20 +496,8 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			# update the shared data
 			for classId, pointsArray in classified.items():
 				for fid in pointsArray:
-					# !!! BEAWARE !!! to mantain compatibility with the old _sharedData <=> _classifiedMap
-					# where fid=classIndex (0=shallow, 1=deep)
-					# instead of: self._sharedData[ fid ] = classId
-					# I'll set the row number of the class
-					
-					# get row number of the class 
-					matches = classModel.match( classModel.index(0,1), Qt.EditRole, classId, -1, Qt.MatchExactly )
-					if len(matches) == 0:
-						self.iface.messageBar().pushMessage("Some classified points have no more associated class", QgsMessageBar.WARNING, 3)
-						continue
-					rowNumber = matches[0].row()
-					
-					# set the classification as the row number of class in classesTable 
-					self._sharedData[ fid ] = int(rowNumber)
+					# set the classification as classId 
+					self._sharedData[ fid ] = classId
 
 		self.emit( SIGNAL("classificationUpdated") )
 
@@ -572,14 +555,15 @@ class ClassificationWdg(QWidget, Ui_ClassificationWdg):
 			# skip unclassified data
 			if f.id() not in self._sharedData:
 				continue
-			classRowNumber = self._sharedData[ f.id() ]
+			classId = self._sharedData[ f.id() ]
 			
 			# look for the className associated to this classId
 			model = self.classesTable.model()
-			index = model.index(classRowNumber,0)
-			if not index.isValid():
+			matches = model.match( model.index(0,1), Qt.EditRole, classId, -1, Qt.MatchExactly )
+			if len(matches) == 0:
 				self.iface.messageBar().pushMessage("Some classified points have no more associated class", QgsMessageBar.WARNING, 3)
 				continue
+			index = matches[0]
 			className = model.getClassName(index)
 
 			# transform to classified layer CRS
