@@ -139,11 +139,16 @@ class Utils:
 
 	@staticmethod
 	def colorGenerator(col1, col2, count):
-		rdiff, gdiff, bdiff = col2.red()-col1.red(), col2.green()-col1.green(), col2.blue()-col1.blue()
-		for i in range(count):
-			step = i/float(count-1)
-			rstep, gstep, bstep = int(rdiff*step), int(gdiff*step), int(bdiff*step)
-			yield QColor(col1.red()+rstep, col1.green()+gstep, col1.blue()+bstep)
+		if count == 0:
+			yield None
+		elif count == 1:
+			yield col1
+		else:
+			rdiff, gdiff, bdiff = col2.red()-col1.red(), col2.green()-col1.green(), col2.blue()-col1.blue()
+			for i in range(count):
+				step = i/float(count-1)
+				rstep, gstep, bstep = int(rdiff*step), int(gdiff*step), int(bdiff*step)
+				yield QColor(col1.red()+rstep, col1.green()+gstep, col1.blue()+bstep)
 
 	@staticmethod
 	def toDisplayedSize(size):
@@ -438,7 +443,7 @@ class LayerStyler:
 
 	@staticmethod
 	def setClassifiedStyle(vl, field, size=1.5):
-		classes = ["shallow", "deep"]
+		classes = []
 		LayerStyler.setClassifiedGraduatedStyle(vl, field, classes, size)
 
 	@staticmethod
